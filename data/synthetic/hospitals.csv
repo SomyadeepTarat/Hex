@@ -1,0 +1,4 @@
+hospital_id,name,zone_id,general_beds,occupied_general_beds,icu_beds,occupied_icu_beds,staffed_shift_capacity
+HOSP-01,Central Community Hospital,ZONE-03,120,78,16,11,42
+HOSP-02,Riverside Medical Centre,ZONE-04,90,61,12,8,31
+HOSP-03,North District Hospital,ZONE-05,150,96,20,13,50

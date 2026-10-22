@@ -1,0 +1,4 @@
+zone_id,display_name,population_estimate,neighboring_zones
+ZONE-03,Central,85000,ZONE-04|ZONE-05
+ZONE-04,Riverside,62000,ZONE-03|ZONE-05
+ZONE-05,North,71000,ZONE-03|ZONE-04
