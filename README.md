@@ -70,7 +70,7 @@ Tests cover matching, emergency bypass, unknown/stale status, budget and transfe
 
 The patient finder accepts free text, quick examples, symptom checkboxes, an optional requested specialist, and explicitly requested resources. It shows what it understood and asks for clarification when the request is unclear. It matches current reported services, specialist capabilities, resources and accepting status, then distance. It explains why a closer hospital was excluded. It does not infer a diagnosis, admission requirement, or oxygen prescription from a symptom.
 
-For example, choose **Central / ZONE-03** and use **Lung specialist**: Riverside (10 synthetic km) is suggested because it reports pulmonology; Central (5 synthetic km) reports general medicine only. Ordinary cough/fever without a specialist request prefers the nearer current suitable hospital. Hospital operators can publish updated expertise/resources in **Report expertise and resources**. Both operational and capability reports become stale after 15 minutes.
+For example, choose **Central / ZONE-03** and type **I was asked to see a lung specialist for my cough**: Riverside (10 synthetic km) is suggested because it reports pulmonology; Central (5 synthetic km) reports general medicine only. Ordinary cough/fever without a specialist request prefers the nearer current suitable hospital. Hospital operators can publish updated expertise/resources in **Report expertise and resources**. Both operational and capability reports become stale after 15 minutes.
 
 Distances in `data/synthetic/demo_distances.json` are fictional demonstration routes. Capabilities in `data/synthetic/hospital_capabilities.json` are synthetic initial reports, persisted centrally. They are not real facility measurements, travel times, physician schedules, or quality ratings. Actual deployment needs verified facility feeds and measured routes.
 
@@ -93,8 +93,8 @@ Planning controls now show inline saved values and validation errors. “Set my 
 
 1. Restart the unified server and open `/hospital/`. Choose **Network administrator** in the same workspace.
 2. Click **Publish fresh synthetic network reports** to explicitly replay the saved synthetic values as new reports. This avoids stale status during a presentation without pretending that a real hospital feed is connected.
-3. Open `/find-care/`, choose **Central / ZONE-03**, and click **Lung specialist** then **Find and explain**. Riverside at 10 synthetic km should be suggested; the explanation states why Central at 5 km was not chosen.
-4. Try **Cough & fever** instead. Without a specialist/resource request, the nearer current suitable hospital is preferred.
+3. Open `/find-care/`, choose **Central / ZONE-03**, and type **I was asked to see a lung specialist for my cough**, continue to the area step, then choose **Show my care options**. Riverside at 10 synthetic km should be suggested; the explanation states why Central at 5 km was not chosen.
+4. Try **I have a cough and fever** instead. Without a specialist/resource request, the nearer current suitable hospital is preferred.
 5. Publish different expertise/resources or accepting status from the hospital workspace. The patient view recomputes locally within five seconds without additional Groq calls.
 6. Test Groq separately by enabling the checkbox for an intentional submission. If Groq denies access, check your Groq billing and team/model permissions. The local result is explicitly identified.
 
@@ -105,3 +105,12 @@ The interpreter supports a general-assessment category for recognizable health c
 Local fallback recognizes stomach-ache variants and additional common concerns such as headache, sore throat, back pain, dizziness and body-part pain. A provider error does not suppress a valid local match. An explicitly requested specialist or resource is never silently dropped: missing requirements remain visible, and unreported specialist expertise is not invented.
 
 Failures distinguish unclear requests, stale/missing reports, non-accepting hospitals, missing requirements and absent network data. Each has a specific title and next step; the same clarification is not repeated twice. Stomach pain has a quick example and a symptom checkbox. Sudden/severe abdominal-pain cues bypass ordinary ranking, consistent with [NHS stomach-ache guidance](https://www.nhs.uk/symptoms/stomach-ache/); the finite cue list is not a validated triage system.
+
+
+## Upgraded conversation interface
+
+The merged frontend keeps the dark care conversation, directory, operations dashboard and skippable intro animation. Type a concern (including stomach ache), select symptoms or requested services, continue to area selection, then choose **Show my care options**. Free text is sent intact to the backend; it is never blocked by a browser-only symptom list. The first step performs a local emergency preview; Groq is called only after the visitor explicitly enables it and submits the final request. Editing a request preserves its text and preferences, while **Start over** clears them.
+
+The operations dashboard retains resource reporting, inline save/error feedback, planning input versions, administrator replay controls, ML evidence and audit history. A normal case feed can correctly select baseline; switch back to the respiratory surge feed and use a 14-day horizon with nonzero hospital limits to demonstrate interventions.
+
+See `docs/demo-checklist.md` for the tested demonstration sequence.

@@ -15,8 +15,8 @@ async def request(method, path, body=None, token=None):
         if not sent:
             sent = True
             return {'type':'http.request', 'body':json.dumps(body).encode() if body is not None else b'', 'more_body':False}
-        await asyncio.sleep(0)
-        return {'type':'http.disconnect'}
+        # Keep the client connected until streaming/static responses finish.
+        await asyncio.Future()
     async def send(message):
         messages.append(message)
     headers = [(b'content-type', b'application/json')]
@@ -26,7 +26,11 @@ async def request(method, path, body=None, token=None):
     await api.app(scope, receive, send)
     status = next(m['status'] for m in messages if m['type']=='http.response.start')
     raw = b''.join(m.get('body', b'') for m in messages if m['type']=='http.response.body')
-    return status, json.loads(raw) if raw else None
+    try:
+        data=json.loads(raw) if raw else None
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        data=raw.decode(errors='replace')
+    return status, data
 
 class ApiTests(unittest.TestCase):
     def setUp(self):
@@ -127,6 +131,49 @@ class ApiTests(unittest.TestCase):
         self.assertIsNone(self.call('POST','/api/public/recommendations',query)[1]['suggested_hospital_id'])
         self.assertEqual(self.call('POST','/api/demo/refresh-reports',token=self.admin)[0],200)
         self.assertEqual(self.call('POST','/api/public/recommendations',query)[1]['suggested_hospital_id'],'HOSP-02')
+    def test_guided_preview_never_calls_provider(self):
+        with patch.object(api.groq,'structured') as provider:
+            status,result=self.call('POST','/api/public/symptom-preview',dict(message='I cannot breathe',use_groq=True))
+            self.assertEqual(status,200)
+            self.assertTrue(result['emergency_guidance_required'])
+            provider.assert_not_called()
+            status,result=self.call('POST','/api/public/symptom-preview',dict(message='I have stomach ache',use_groq=True))
+            self.assertEqual(status,200)
+            self.assertIn('stomach_pain',result['interpretation']['symptom_tags'])
+            provider.assert_not_called()
+    def test_guided_free_text_and_verified_explanation(self):
+        def provider(task,data,properties):
+            if 'facts' in data:
+                return dict(hospital_id=data['selected_hospital_id'],fact_ids=[f['id'] for f in data['facts']])
+            return dict(is_health_concern=True,unmatched_requested_service=None,symptom_tags=['general_concern'],requested_specialty=None,requested_resources=[],emergency=False,clarification=None)
+        with patch.object(api.groq,'structured',side_effect=provider) as calls:
+            code,data=self.call('POST','/api/public/recommendations',dict(message='I have tingling around my fingers',zone_id='ZONE-04',use_groq=True))
+            self.assertEqual(code,200)
+            self.assertEqual(data['suggested_hospital_id'],'HOSP-02')
+            self.assertEqual(data['interpretation']['source'],'groq')
+            self.assertIn('Groq-assisted',data['explanation_source'])
+            self.assertEqual(calls.call_count,2)
+    def test_frontend_routes_include_current_behavior_controls(self):
+        from html.parser import HTMLParser
+        class Controls(HTMLParser):
+            def __init__(self):super().__init__();self.ids=set();self.scripts=[]
+            def handle_starttag(self,tag,attrs):
+                attrs=dict(attrs)
+                if 'id' in attrs:self.ids.add(attrs['id'])
+                if tag=='script' and 'src' in attrs:self.scripts.append(attrs['src'])
+        expected={'/find-care/':{'description','use-groq','specialty','symptom-step','zone-step','conversation-log','results'},'/hospital/':{'capabilities-form','status-feedback','constraints-feedback','settings-feedback','chat-feedback','refresh-reports','plan-inputs','kpi-staffed'}}
+        for route,ids in expected.items():
+            code,html=self.call('GET',route)
+            self.assertEqual(code,200)
+            parser=Controls();parser.feed(html)
+            self.assertFalse(ids-parser.ids)
+            for src in parser.scripts:
+                from urllib.parse import urljoin,urlsplit
+                path=urlsplit(urljoin(route,src)).path
+                code,script=self.call('GET',path)
+                self.assertEqual(code,200)
+                self.assertNotIn('<<<<<<< HEAD',script)
+
     def test_no_key_exposure(self):
         response=self.call('GET','/api/public/assistant-status')[1]
         self.assertEqual(set(response),{'configured','model'})

@@ -20,6 +20,7 @@ class GroqTransportTests(unittest.TestCase):
         request=call.call_args.args[0]
         payload=json.loads(request.data)
         self.assertEqual(request.full_url,'https://api.groq.com/openai/v1/chat/completions')
+        self.assertEqual(request.get_header('User-agent'),'HEX/0.1')
         self.assertNotIn('input',payload)
         self.assertEqual(len(payload['messages']),2)
         self.assertEqual(payload['max_completion_tokens'],1000)

@@ -15,6 +15,14 @@ from . import groq
 
 app = FastAPI(title='HEX central hospital system')
 
+@app.middleware('http')
+async def fresh_local_interfaces(request, call_next):
+    response = await call_next(request)
+    if request.url.path == '/' or request.url.path.startswith(('/find-care', '/hospital')):
+        response.headers['Cache-Control'] = 'no-store, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+    return response
+
 class Input(BaseModel):
     model_config = ConfigDict(extra='forbid')
 class Login(Input):
@@ -122,6 +130,15 @@ def recommendations(payload: Search):
     if payload.use_groq and not needs['provider_notice']:
         result = explain_with_groq(result)
     return result
+
+@app.post('/api/public/symptom-preview')
+def symptom_preview(payload: Search):
+    # A local-only emergency check before the guided UI asks for an area.
+    # Do not consume provider calls or withhold free text because no named tag fits.
+    needs = interpret(payload.message, payload.symptoms, False)
+    if needs['emergency']:
+        return match_care(needs, None, [], datetime.now(timezone.utc))
+    return dict(emergency_guidance_required=False, interpretation=needs)
 
 @app.get('/api/public/assistant-status')
 def assistant_status():
