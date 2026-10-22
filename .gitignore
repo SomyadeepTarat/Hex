@@ -3,3 +3,5 @@ dist/
 .vite/
 data/*.db
 __pycache__/
+*.py[cod]
+.venv/

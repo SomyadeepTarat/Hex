@@ -1,0 +1,359 @@
+{
+  "run_id": "c21c23b8-f204-4a8d-9ec5-484f27551f02",
+  "status_version": 1,
+  "constraints_version": 1,
+  "generated_at": "2026-10-22T07:08:44.131588+00:00",
+  "detection": {
+    "alert": false,
+    "sufficient_history": true,
+    "baseline_daily_mean": 11.214285714285714,
+    "recent_daily_mean": 12.333333333333334,
+    "threshold": 21.260607002626607,
+    "daily_counts": [
+      {
+        "date": "2026-10-06",
+        "count": 11
+      },
+      {
+        "date": "2026-10-07",
+        "count": 13
+      },
+      {
+        "date": "2026-10-08",
+        "count": 5
+      },
+      {
+        "date": "2026-10-09",
+        "count": 17
+      },
+      {
+        "date": "2026-10-10",
+        "count": 8
+      },
+      {
+        "date": "2026-10-11",
+        "count": 8
+      },
+      {
+        "date": "2026-10-12",
+        "count": 8
+      },
+      {
+        "date": "2026-10-13",
+        "count": 12
+      },
+      {
+        "date": "2026-10-14",
+        "count": 14
+      },
+      {
+        "date": "2026-10-15",
+        "count": 13
+      },
+      {
+        "date": "2026-10-16",
+        "count": 14
+      },
+      {
+        "date": "2026-10-17",
+        "count": 12
+      },
+      {
+        "date": "2026-10-18",
+        "count": 10
+      },
+      {
+        "date": "2026-10-19",
+        "count": 12
+      },
+      {
+        "date": "2026-10-20",
+        "count": 12
+      },
+      {
+        "date": "2026-10-21",
+        "count": 8
+      },
+      {
+        "date": "2026-10-22",
+        "count": 17
+      }
+    ],
+    "explanation": "Recent respiratory count mean compared with baseline mean plus three Poisson standard deviations; assumes complete daily reporting."
+  },
+  "strategies": [
+    {
+      "strategy_id": "baseline",
+      "feasible": true,
+      "additional_staffed_beds": {},
+      "transfer_out_limit_per_day": {},
+      "intervention_cost": 0,
+      "worst_case_unmet_bed_days": 0.0,
+      "mean_unmet_bed_days": 0.0,
+      "fraction_scenarios_without_unmet_demand": 1.0,
+      "forecast": [
+        {
+          "day": 1,
+          "mean_occupancy": 201.98968981062382,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 2,
+          "mean_occupancy": 176.28331446855307,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 3,
+          "mean_occupancy": 156.35224531884603,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 4,
+          "mean_occupancy": 141.11799932129006,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 5,
+          "mean_occupancy": 129.26693985131817,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 6,
+          "mean_occupancy": 119.47690617877807,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 7,
+          "mean_occupancy": 113.42670939034977,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 8,
+          "mean_occupancy": 109.40111169207917,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 9,
+          "mean_occupancy": 108.30021250098426,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 10,
+          "mean_occupancy": 107.42627150904035,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 11,
+          "mean_occupancy": 108.2626547196359,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 12,
+          "mean_occupancy": 110.40723021737662,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 13,
+          "mean_occupancy": 114.03798634469051,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 14,
+          "mean_occupancy": 119.30033053155475,
+          "worst_unmet_demand": 0
+        }
+      ]
+    },
+    {
+      "strategy_id": "flex_capacity",
+      "feasible": true,
+      "additional_staffed_beds": {
+        "HOSP-01": 0,
+        "HOSP-02": 0,
+        "HOSP-03": 0
+      },
+      "transfer_out_limit_per_day": {},
+      "intervention_cost": 0,
+      "worst_case_unmet_bed_days": 0.0,
+      "mean_unmet_bed_days": 0.0,
+      "fraction_scenarios_without_unmet_demand": 1.0,
+      "forecast": [
+        {
+          "day": 1,
+          "mean_occupancy": 201.98968981062382,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 2,
+          "mean_occupancy": 176.28331446855307,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 3,
+          "mean_occupancy": 156.35224531884603,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 4,
+          "mean_occupancy": 141.11799932129006,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 5,
+          "mean_occupancy": 129.26693985131817,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 6,
+          "mean_occupancy": 119.47690617877807,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 7,
+          "mean_occupancy": 113.42670939034977,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 8,
+          "mean_occupancy": 109.40111169207917,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 9,
+          "mean_occupancy": 108.30021250098426,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 10,
+          "mean_occupancy": 107.42627150904035,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 11,
+          "mean_occupancy": 108.2626547196359,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 12,
+          "mean_occupancy": 110.40723021737662,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 13,
+          "mean_occupancy": 114.03798634469051,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 14,
+          "mean_occupancy": 119.30033053155475,
+          "worst_unmet_demand": 0
+        }
+      ]
+    },
+    {
+      "strategy_id": "redistribution",
+      "feasible": true,
+      "additional_staffed_beds": {},
+      "transfer_out_limit_per_day": {
+        "HOSP-01": 3,
+        "HOSP-02": 2,
+        "HOSP-03": 2
+      },
+      "intervention_cost": 98,
+      "worst_case_unmet_bed_days": 0.0,
+      "mean_unmet_bed_days": 0.0,
+      "fraction_scenarios_without_unmet_demand": 1.0,
+      "forecast": [
+        {
+          "day": 1,
+          "mean_occupancy": 201.98968981062382,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 2,
+          "mean_occupancy": 176.28331446855307,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 3,
+          "mean_occupancy": 156.35224531884603,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 4,
+          "mean_occupancy": 141.11799932129006,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 5,
+          "mean_occupancy": 129.26693985131817,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 6,
+          "mean_occupancy": 119.47690617877807,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 7,
+          "mean_occupancy": 113.42670939034977,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 8,
+          "mean_occupancy": 109.40111169207917,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 9,
+          "mean_occupancy": 108.30021250098426,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 10,
+          "mean_occupancy": 107.42627150904035,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 11,
+          "mean_occupancy": 108.2626547196359,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 12,
+          "mean_occupancy": 110.40723021737662,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 13,
+          "mean_occupancy": 114.03798634469051,
+          "worst_unmet_demand": 0
+        },
+        {
+          "day": 14,
+          "mean_occupancy": 119.30033053155475,
+          "worst_unmet_demand": 0
+        }
+      ]
+    }
+  ],
+  "recommendation": {
+    "strategy_id": "baseline",
+    "explanation": "Best among evaluated feasible plans, ranked by worst-case unmet bed-days, mean unmet bed-days, then cost."
+  },
+  "scenarios": {
+    "count": 100,
+    "horizon_days": 14,
+    "seed": 42
+  },
+  "assumptions": [
+    "Synthetic scenarios, not calibrated clinical forecasts.",
+    "General beds only; reported staffed capacity is operational capacity.",
+    "Growth sampled uniformly from -0.02 to 0.12 per day; length of stay from 4 to 8 days.",
+    "Unserved demand waits and contributes unmet bed-days each day; no mortality model.",
+    "Flex beds cost 10 illustrative units per horizon; transfers reserve 1 unit per allowed patient per day.",
+    "Flex allocation uses greedy marginal improvement and stays fixed across futures; no global optimum claim.",
+    "Transfers use a network-wide demo pool; geography and travel times are not modeled.",
+    "Public symptom searches are not hospital case signals."
+  ]
+}

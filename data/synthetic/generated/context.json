@@ -1,0 +1,141 @@
+{
+  "hospitals": [
+    {
+      "hospital_id": "HOSP-01",
+      "name": "Central Community Hospital",
+      "zone_id": "ZONE-03",
+      "general_beds": 120,
+      "occupied_general_beds": 78,
+      "icu_beds": 16,
+      "occupied_icu_beds": 11,
+      "staffed_shift_capacity": 42,
+      "services": [
+        "general",
+        "respiratory"
+      ],
+      "emergency_service_available": true,
+      "neighboring_zones": [
+        "ZONE-04",
+        "ZONE-05"
+      ]
+    },
+    {
+      "hospital_id": "HOSP-02",
+      "name": "Riverside Medical Centre",
+      "zone_id": "ZONE-04",
+      "general_beds": 90,
+      "occupied_general_beds": 61,
+      "icu_beds": 12,
+      "occupied_icu_beds": 8,
+      "staffed_shift_capacity": 31,
+      "services": [
+        "general",
+        "respiratory"
+      ],
+      "emergency_service_available": true,
+      "neighboring_zones": [
+        "ZONE-03",
+        "ZONE-05"
+      ]
+    },
+    {
+      "hospital_id": "HOSP-03",
+      "name": "North District Hospital",
+      "zone_id": "ZONE-05",
+      "general_beds": 150,
+      "occupied_general_beds": 96,
+      "icu_beds": 20,
+      "occupied_icu_beds": 13,
+      "staffed_shift_capacity": 50,
+      "services": [
+        "general",
+        "respiratory"
+      ],
+      "emergency_service_available": true,
+      "neighboring_zones": [
+        "ZONE-03",
+        "ZONE-04"
+      ]
+    }
+  ],
+  "zones": [
+    {
+      "zone_id": "ZONE-03",
+      "display_name": "Central",
+      "population_estimate": 85000,
+      "neighboring_zones": [
+        "ZONE-04",
+        "ZONE-05"
+      ]
+    },
+    {
+      "zone_id": "ZONE-04",
+      "display_name": "Riverside",
+      "population_estimate": 62000,
+      "neighboring_zones": [
+        "ZONE-03",
+        "ZONE-05"
+      ]
+    },
+    {
+      "zone_id": "ZONE-05",
+      "display_name": "North",
+      "population_estimate": 71000,
+      "neighboring_zones": [
+        "ZONE-03",
+        "ZONE-04"
+      ]
+    }
+  ],
+  "statuses": [
+    {
+      "hospital_id": "HOSP-01",
+      "staffed_general_beds": 120,
+      "occupied_general_beds": 78,
+      "accepting_patients": true,
+      "reported_at": "2026-10-22T06:00:00Z",
+      "version": 1
+    },
+    {
+      "hospital_id": "HOSP-02",
+      "staffed_general_beds": 90,
+      "occupied_general_beds": 61,
+      "accepting_patients": true,
+      "reported_at": "2026-10-22T06:00:00Z",
+      "version": 1
+    },
+    {
+      "hospital_id": "HOSP-03",
+      "staffed_general_beds": 150,
+      "occupied_general_beds": 96,
+      "accepting_patients": true,
+      "reported_at": "2026-10-22T06:00:00Z",
+      "version": 1
+    }
+  ],
+  "constraints": [
+    {
+      "hospital_id": "HOSP-01",
+      "max_additional_staffed_beds": 12,
+      "transfer_out_limit_per_day": 5
+    },
+    {
+      "hospital_id": "HOSP-02",
+      "max_additional_staffed_beds": 12,
+      "transfer_out_limit_per_day": 5
+    },
+    {
+      "hospital_id": "HOSP-03",
+      "max_additional_staffed_beds": 12,
+      "transfer_out_limit_per_day": 5
+    }
+  ],
+  "settings": {
+    "scenario_count": 100,
+    "horizon_days": 14,
+    "seed": 42,
+    "budget_units": 100,
+    "status_version": 1,
+    "constraints_version": 1
+  }
+}
