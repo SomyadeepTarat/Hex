@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, ConfigDict, AliasChoices
 from . import db, planning
 from .facility_recommendation import recommend_facilities
 from .constraint_parser import parse_constraint_message
+from .privacy.gate import sanitize_batch
 from .care_matching import interpret, match_care, explain_with_groq
 from . import groq
 
@@ -49,6 +50,9 @@ class Search(Input):
 class Message(Input):
     message: str = Field(min_length=1, max_length=1000)
     hospital_id: str | None = None
+
+class CaseIngest(Input):
+    records: list[dict] = Field(min_length=1, max_length=500)
 class Capabilities(Input):
     specialties: list[str] = Field(max_length=5)
     oxygen_stations: int = Field(ge=0, le=1000, strict=True)
@@ -292,6 +296,11 @@ def demo_feed(mode: str, user=Depends(operator)):
         raise HTTPException(422, 'Choose normal or surge')
     with (db.ROOT / f'data/synthetic/generated/cases_{mode}.csv').open() as handle:
         cases = list(csv.DictReader(handle))
+    hospitals, zones = hospital_rows()
+    try:
+        cases = sanitize_batch(cases, {h['hospital_id'] for h in hospitals}, {z['zone_id'] for z in zones})
+    except ValueError:
+        raise HTTPException(422, 'Case feed failed privacy or schema validation') from None
     with db.connect() as conn:
         conn.execute('BEGIN IMMEDIATE')
         old_count = conn.execute('SELECT COUNT(*) FROM case_signals').fetchone()[0]
@@ -301,6 +310,24 @@ def demo_feed(mode: str, user=Depends(operator)):
         audit(conn, user, 'network', 'synthetic_feed', {'case_count': old_count}, {'mode': mode, 'case_count': len(cases)})
     planning.request_run()
     return dict(ok=True, case_count=len(cases), mode=mode)
+
+@app.post('/api/cases/ingest')
+def ingest_cases(payload: CaseIngest, user=Depends(operator)):
+    hospitals, zones = hospital_rows()
+    for record in payload.records:
+        own(user, record.get('hospital_id'))
+    try:
+        safe = sanitize_batch(payload.records, {h['hospital_id'] for h in hospitals}, {z['zone_id'] for z in zones})
+    except (ValueError, TypeError):
+        # Do not reflect raw fields or exception values into logs/responses.
+        raise HTTPException(422, 'Case records failed privacy or schema validation') from None
+    with db.connect() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        conn.executemany('INSERT INTO case_signals VALUES(?,?)', [(r['case_id'], json.dumps(r)) for r in safe])
+        conn.execute('UPDATE network_settings SET version=version+1 WHERE id=1')
+        audit(conn, user, user.get('hospital_id') or 'network', 'ingest_filtered_cases', None, {'case_count':len(safe)})
+    planning.request_run()
+    return {'accepted':len(safe), 'privacy_gate':'applied', 'raw_text_stored':False}
 
 @app.post('/api/demo/refresh-reports')
 def refresh_demo_reports(user=Depends(operator)):

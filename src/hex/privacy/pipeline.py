@@ -10,6 +10,10 @@ import csv
 import random
 from datetime import datetime
 from pathlib import Path
+try:
+    from .gate import SYMPTOMS, redact_text
+except ImportError:  # Standalone legacy demo server.
+    from gate import SYMPTOMS, redact_text
 
 ROOT = Path(__file__).resolve().parents[3]
 RAW_CASES = ROOT / "data" / "raw" / "synthetic_cases_with_pii.csv"
@@ -40,7 +44,7 @@ def privacy_filter(rows: list[dict[str, str]], hospital_map: dict[str, dict[str,
             "hospital_id": hospital_map[row["hospital_id"]]["hospital_id"],
             "zone_id": hospital_map[row["hospital_id"]]["zone_id"],
             "age_band": _age_band(row["age"]),
-            "symptoms": row["symptoms"].split("|"),
+            "symptoms": [tag for tag in redact_text(row["symptoms"])[0].split("|") if tag in SYMPTOMS],
             "severity": row["severity"],
             "admitted": row["admitted"].strip().lower() == "true",
         })
