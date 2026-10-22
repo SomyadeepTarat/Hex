@@ -13,6 +13,14 @@ from .constraint_parser import parse_constraint_message
 
 app = FastAPI(title='HEX central hospital system')
 
+@app.middleware('http')
+async def fresh_local_interfaces(request, call_next):
+    response = await call_next(request)
+    if request.url.path == '/' or request.url.path.startswith(('/find-care', '/hospital')):
+        response.headers['Cache-Control'] = 'no-store, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+    return response
+
 class Input(BaseModel):
     model_config = ConfigDict(extra='forbid')
 class Login(Input):

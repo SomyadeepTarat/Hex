@@ -1,3 +1,121 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
-.live a{color:#c2d9d5;text-decoration:none;margin-right:8px}
-*{box-sizing:border-box}body{margin:0;background:#f4f7f7;color:#1a3039;font:14px 'DM Sans',sans-serif}header{height:62px;background:#142630;color:white;display:flex;align-items:center;justify-content:space-between;padding:0 max(calc((100vw - 1120px)/2),24px)}.brand{font:800 18px Manrope;color:#fff;text-decoration:none;letter-spacing:1px}.brand span{font:600 9px 'DM Sans';letter-spacing:1.1px;color:#99b1b6;margin-left:9px}.live{font-size:9px;letter-spacing:.7px;color:#b5ccc9}.live i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#49c59d;margin-right:6px}.main,main{max-width:1120px;margin:auto;padding:35px 24px}.intro{margin-bottom:22px}.eyebrow{font-size:9px;letter-spacing:1.25px;color:#628179;font-weight:700}.intro h1{font:700 30px Manrope;letter-spacing:-.6px;margin:9px 0}.intro p{color:#78898f;font-size:13px;max-width:700px;line-height:1.6}.layout{display:grid;grid-template-columns:.9fr 1.1fr;gap:15px}.card{border:1px solid #e4ebea;background:white;border-radius:10px;padding:21px}h2{font:700 16px Manrope;margin:5px 0 0}.helper{font-size:11px;color:#8b989b;line-height:1.5;margin:7px 0 15px}.checks{display:grid;grid-template-columns:1fr 1fr;gap:9px}.checks label{font-size:11px;color:#52646a;display:flex;align-items:center;gap:7px}.checks input{accent-color:#168d82}.field-label{display:block;font-size:10px;font-weight:700;color:#64777c;margin:18px 0 6px}select{width:100%;height:38px;border:1px solid #dce5e4;border-radius:5px;padding:0 10px;background:white;color:#43575e}.primary{border:0;background:#177f74;color:white;height:41px;border-radius:5px;padding:0 14px;font:600 11px 'DM Sans';margin-top:14px;cursor:pointer}.primary span{margin-left:12px}.error{color:#a24d45;font-size:11px;margin-top:8px}.row{display:flex;align-items:center;justify-content:space-between}.connection{font-size:9px;color:#4a9781}.hospitals{margin-top:10px}.hospital{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #edf0ef}.hospital:last-child{border-bottom:0}.symbol{width:30px;height:30px;background:#eaf4f1;border-radius:7px;display:grid;place-items:center;color:#398d7e}.details{flex:1}.details b{font-size:11px}.details small{display:block;color:#91a0a2;font-size:9px;margin-top:4px}.capacity{text-align:right;font-size:10px}.capacity small{display:block;color:#94a1a3;font-size:9px;margin-top:4px}.fineprint{color:#9aa5a7;font-size:9px;border-top:1px solid #edf0ef;padding-top:11px;margin:4px 0 0}.results{margin-top:16px}.empty{border:1px dashed #d7e1df;border-radius:8px;padding:21px;color:#89979a;font-size:11px;text-align:center;background:#fbfcfc}.recommendation{border:1px solid #cee6dd;background:#f9fcfb;border-radius:9px;padding:17px;margin-bottom:10px}.rec-title{color:#3f9380;font-size:9px;letter-spacing:.8px;font-weight:700}.recommendation h2{margin:6px 0}.reasons{font-size:11px;color:#718184;line-height:1.6}.alternatives{font-size:10px;color:#78878a;padding:10px 0;border-top:1px solid #e7efec;margin-top:10px}.warning{border:1px solid #edd6c0;background:#fff9f3;color:#795e49;padding:14px;border-radius:7px;font-size:12px;line-height:1.6}footer{color:#9ba7a8;font-size:9px;padding:23px 0 10px}footer span{float:right}@media(max-width:750px){.layout{grid-template-columns:1fr}.intro h1{font-size:25px}.main,main{padding:24px 15px}.checks{grid-template-columns:1fr 1fr}footer span{float:none;display:block;margin-top:5px}}
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root { --ink:#e8edf5; --muted:#a9b8cc; --line:#283446; --blue:#82afff; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; scroll-padding-top:28px; }
+body { margin:0; color:var(--ink); background:#090d13; font:14px 'DM Sans',sans-serif; }
+button,input,select { font:inherit; }
+button { cursor:pointer; }
+button:disabled { opacity:.55; cursor:wait; }
+a { color:inherit; text-decoration:none; }
+h1,h2,h3,p { margin:0; }
+[hidden] { display:none!important; }
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible { outline:3px solid #8aa8e4; outline-offset:3px; }
+.public-header { padding:22px max(24px,calc((100vw - 1180px)/2)); background:#111821; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.brand { display:flex; align-items:center; gap:9px; font:800 25px Manrope,sans-serif; letter-spacing:-1px; }
+.brand-symbol { width:30px; height:33px; background:#214b99; color:#fff; border-radius:7px; display:grid; place-items:center; font-size:16px; position:relative; }
+.brand-symbol>span { position:absolute; width:6px; height:6px; background:#8ec9b8; border:2px solid #111821; box-sizing:content-box; border-radius:50%; top:-4px; right:-4px; }
+.brand-sub { font:400 12px 'DM Sans'; letter-spacing:0; color:#a6b6ce; border-left:1px solid var(--line); padding-left:17px; margin-left:10px; }
+.public-header nav { display:flex; gap:26px; align-items:center; font-size:12px; color:#a6b6ce; }
+.public-header nav>a:first-child { color:#8cb7ff; font-weight:600; }
+.hospital-link { color:#acc7ed; border:1px solid #2a374a; border-radius:5px; padding:10px 13px; }
+.hospital-link>span { margin-left:18px; }
+main { max-width:1180px; padding:0 24px; margin:auto; }
+.care-section { padding:43px 0 45px; }
+.section-title { display:flex; align-items:end; justify-content:space-between; gap:25px; margin-bottom:26px; }
+.eyebrow { font-size:10px; font-weight:600; letter-spacing:1.2px; color:#a6b6ce; }
+.section-title h1 { font:600 32px/1.3 Manrope,sans-serif; letter-spacing:-1px; margin-top:11px; }
+.section-title h2 { font:600 23px Manrope,sans-serif; letter-spacing:-.6px; margin-top:10px; }
+.patient-context { text-align:right; }
+.demo-badge { display:inline-block; font-size:8px; letter-spacing:.7px; border-radius:3px; background:#101c2c; color:#a6b6ce; padding:5px 7px; margin-bottom:7px; }
+.patient-context p { color:#a6b6ce; font-size:11px; }
+.care-layout { display:grid; grid-template-columns:minmax(0,1fr) 270px; gap:26px; align-items:start; }
+.conversation { background:#111821; border:1px solid #2a374a; border-radius:9px; overflow:hidden; box-shadow:0 5px 24px #00000015; }
+.conversation-top { padding:20px 23px; border-bottom:1px solid #2a374a; display:flex; gap:12px; align-items:center; }
+.assistant-avatar { width:34px; height:34px; background:#1c3150; color:#96bdff; border:1px solid #2a374a; display:grid; place-items:center; font-size:22px; border-radius:8px; }
+.conversation-top b { display:block; font-size:13px; font-weight:600; }
+.conversation-top span { display:block; font-size:10px; color:#a6b6ce; margin-top:4px; }
+.text-button { border:0; background:none; padding:8px 0; font-size:11px; color:#a6b6ce; }
+.conversation-top>.text-button { margin-left:auto; }
+.conversation-log { padding:26px 24px 0; display:flex; flex-direction:column; gap:21px; }
+.chat-message { max-width:94%; font-size:14px; line-height:1.85; }
+.message-label { display:block; font-size:8px; letter-spacing:1px; font-weight:600; color:#a6b6ce; margin-bottom:7px; }
+.assistant p { background:#17212f; color:#bdcadb; padding:15px 17px; border:1px solid #2a374a; border-radius:0 9px 9px 9px; }
+.chat-message.user { align-self:end; text-align:right; }
+.user p { background:#274f91; color:white; border-radius:9px 0 9px 9px; padding:11px 16px; font-size:12px; }
+.user .message-label { color:#a6b6ce; }
+#search-form { padding:24px; }
+.input-hint { color:#a6b6ce; font-size:11px; margin-bottom:13px; }
+.checks { display:flex; flex-wrap:wrap; gap:8px; border:0; padding:0; margin:0; }
+.checks label { display:flex; align-items:center; cursor:pointer; }
+.checks input { position:absolute; opacity:0; width:1px; height:1px; }
+.checks span { border:1px solid #2a374a; color:#a6b6ce; border-radius:5px; padding:9px 13px; font-size:12px; background:#111821; }
+.checks input:checked+span { background:#1c3355; border-color:#8ba8dc; color:#bdd6ff; }
+.checks input:focus-visible+span { outline:2px solid #7797d1; outline-offset:3px; }
+.urgent-chip span { color:#d5b58b; border-color:#5b4932; }
+.composer { display:flex; gap:9px; align-items:center; border:1px solid #2a374a; border-radius:6px; padding:8px; margin-top:22px; }
+.composer input { min-width:0; flex:1; border:0; padding:7px; background:transparent; font-size:13px; color:#d8e3f4; }
+.composer input::placeholder { color:#a6b6ce; }
+.composer input:focus { outline:none; }
+.composer:focus-within { box-shadow:0 0 0 2px #2a374a; border-color:#9bb5df; }
+.send-button { width:33px; height:33px; border:0; border-radius:4px; background:#285bb8; color:white; font-size:20px; }
+.continue-button { width:100%; display:flex; align-items:center; justify-content:space-between; background:none; border:0; color:#a6b6ce; font-size:11px; padding:17px 0 0; }
+.continue-button>span { font-size:17px; }
+.field-label { display:block; font-size:9px; color:#a6b6ce; letter-spacing:.8px; margin-bottom:9px; }
+select { width:100%; border:1px solid #2a374a; height:45px; background:#111821; color:#a6b6ce; padding:0 12px; border-radius:5px; font-size:13px; }
+.action-button { margin-top:14px; width:100%; display:flex; justify-content:space-between; background:#285bb8; color:white; border:0; border-radius:5px; padding:14px 16px; font-size:12px; }
+#zone-step>.text-button { margin-top:8px; }
+.error { font-size:12px; color:#e4ad9e; margin-top:12px; line-height:1.7; }
+.conversation-bottom { display:flex; gap:8px; align-items:center; border-top:1px solid #2a374a; padding:15px 24px; color:#a6b6ce; font-size:10px; line-height:1.7; }
+.conversation-bottom>span { font-size:14px; color:#a6b6ce; }
+.care-aside { display:flex; flex-direction:column; gap:20px; }
+.aside-note { background:#101c2c; border:1px solid #2a374a; border-radius:8px; padding:21px; }
+.note-icon { display:inline-grid; place-items:center; color:#a6b6ce; width:29px; height:29px; background:#182a42; border:1px solid #2a374a; border-radius:6px; font-size:17px; }
+.aside-note h3 { font:600 16px Manrope,sans-serif; letter-spacing:-.4px; margin:17px 0 10px; color:#d5e1f3; }
+.aside-note p { font-size:12px; line-height:1.85; color:#a6b6ce; }
+.emergency-note { display:flex; gap:10px; align-items:start; padding:4px 5px; }
+.emergency-note>span { width:17px; height:17px; flex:none; display:grid; place-items:center; border:1px solid #77634b; border-radius:50%; color:#d5b58b; font-size:9px; }
+.emergency-note h3 { font-size:12px; font-weight:500; color:#d5b58b; margin:1px 0 9px; }
+.emergency-note p { font-size:11px; color:#c2b8a9; line-height:1.8; }
+.process-note { display:grid; grid-template-columns:25px 1fr; gap:12px; border-top:1px solid #2a374a; margin:0 5px; padding-top:20px; color:#a6b6ce; font-size:11px; }
+.process-note>span { font-size:9px; color:#a6b6ce; }
+.results { padding:0 24px; }
+.results:empty { display:none; }
+.facility-result { border:1px solid #2a374a; background:#121c29; padding:19px; border-radius:6px; margin-bottom:15px; }
+.result-label { font-size:9px; color:#a6b6ce; letter-spacing:1px; }
+.facility-result h3 { font:600 17px Manrope; letter-spacing:-.4px; color:#d5e1f3; margin:9px 0; }
+.facility-result p,.facility-result li { font-size:12px; color:#a6b6ce; line-height:1.8; }
+.facility-result ul { padding-left:15px; margin:10px 0; }
+.result-tag { display:inline-block; color:#a6b6ce; font-size:9px; padding:4px 7px; border:1px solid #2a374a; background:#1a283a; border-radius:3px; margin:4px 5px 7px 0; }
+.result-limit { color:#a6b6ce; font-size:10px; line-height:1.8; margin:10px 0 20px; }
+.warning { background:#241d17; border:1px solid #5b4932; border-radius:6px; padding:18px; color:#d5b58b; font-size:13px; line-height:1.8; margin-bottom:20px; }
+.network-section { padding:0 0 45px; }
+.connection-wrap { display:flex; gap:7px; align-items:center; font-size:10px; color:#a6b6ce; }
+.signal-dot { width:6px; height:6px; border-radius:50%; display:inline-block; background:#9ccbb1; }
+.hospital-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+.hospital-report { border:1px solid #2a374a; border-radius:6px; background:#111821; padding:21px; }
+.report-top { display:flex; align-items:center; justify-content:space-between; font-size:9px; color:#a6b6ce; margin-bottom:17px; }
+.report-mark { display:grid; place-items:center; width:25px; height:25px; border-radius:5px; background:#182638; font-size:18px; color:#a6b6ce; }
+.hospital-report h3 { font:600 14px Manrope; letter-spacing:-.3px; color:#d5e1f3; margin-bottom:9px; }
+.report-detail { font-size:11px; color:#a6b6ce; line-height:1.7; }
+.report-capacity { font-size:12px; color:#bbcee9; margin-top:15px; }
+.report-status { margin-top:14px; padding-top:12px; border-top:1px solid #2a374a; font-size:10px; color:#d5b58b; }
+.report-status.current { color:#9ccbb1; }
+.network-footnote { font-size:11px; line-height:1.8; color:#a6b6ce; max-width:860px; margin-top:15px; }
+.empty { font-size:12px; color:#a6b6ce; padding:15px 0; }
+footer { display:flex; align-items:center; gap:20px; padding:24px max(24px,calc((100vw - 1132px)/2)); border-top:1px solid #2a374a; background:#111821; color:#a6b6ce; font-size:10px; }
+footer>.brand { font-size:21px; color:#a6b6ce; }
+footer>p { max-width:190px; line-height:1.6; }
+footer>span { margin-left:auto; }
+footer>a:last-child { margin-left:14px; font-size:11px; color:#a6b6ce; }
+.sr-only { position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); }
+@media(max-width:950px) { .brand-sub{display:none}.care-layout{grid-template-columns:minmax(0,1fr) 235px;gap:20px}.public-header nav{gap:20px}.section-title h1{font-size:28px}.patient-context p{max-width:200px;line-height:1.7}.aside-note{padding:18px}.hospital-report{padding:17px} }
+@media(max-width:700px) { .public-header{padding:19px 20px}.public-header nav>a:nth-child(2){display:none}.public-header nav{font-size:11px;gap:16px}.hospital-link{padding:9px}.hospital-link>span{margin-left:9px}.brand{font-size:22px}.brand-symbol{width:25px;height:28px}main{padding:0 17px}.care-section{padding:29px 0 35px}.section-title{display:block;margin-bottom:21px}.section-title h1{font-size:27px}.patient-context{text-align:left;margin-top:16px}.patient-context p{display:inline;margin-left:8px;max-width:none;font-size:10px}.care-layout{grid-template-columns:1fr}.conversation-top{padding:17px}.conversation-top span{font-size:9px}.conversation-top b{font-size:12px}.text-button{font-size:10px}.conversation-log{padding:20px 17px 0}.chat-message{font-size:13px;max-width:95%}#search-form{padding:20px 17px}.checks{gap:7px}.checks span{font-size:11px;padding:9px 10px}.composer input{font-size:12px}.conversation-bottom{padding:13px 17px;font-size:9px}.results{padding:0 17px}.care-aside{display:grid;grid-template-columns:1fr 1fr;gap:18px}.aside-note{padding:17px}.aside-note h3{font-size:14px;margin:12px 0 8px}.aside-note p{font-size:11px}.emergency-note{padding-top:4px}.process-note{display:none}.hospital-grid{grid-template-columns:1fr}.network-section .connection-wrap{margin-top:16px;font-size:9px}.section-title h2{font-size:24px}.hospital-report h3{font-size:15px}.network-footnote{font-size:10px}footer{padding:22px 20px;flex-wrap:wrap;gap:15px;font-size:9px}footer>span{margin-left:0}footer>a:last-child{margin-left:auto;font-size:10px} }
+@media(max-width:400px) { .care-aside{grid-template-columns:1fr}.hospital-link{border:0;padding:0}.conversation-top .text-button{font-size:9px} }
+@media(prefers-reduced-motion:reduce) { html{scroll-behavior:auto} }
+
+/* Dark controls, clear hover states and native dark menus. */
+:root{color-scheme:dark}.public-header,footer{background:#0d131d}.checks label:hover span{border-color:#7096cc;background:#17263b}.hospital-link:hover{border-color:#7096cc;background:#17263b}.send-button:hover,.action-button:hover{background:#326fdc}.assistant-avatar{border-color:#3c5b87}.composer:focus-within{box-shadow:0 0 0 2px #173051}.aside-note{background:#121d2c}.warning b{color:#f0cf9f}.result-tag{border-color:#3b516e}.conversation-top .text-button:hover,.continue-button:hover{color:#d0e3ff}.network-footnote{color:#a6b6ce}.patient-context p{color:#a6b6ce}.report-status.current{color:#9ccbb1}
+
+/* Actionable boundaries exceed 3:1 against the surrounding panel. */
+.checks span,.composer,select{border-color:#5a7194}.checks .urgent-chip span{border-color:#8f7758}.checks input:checked+span{border-color:#94b9ff}.hospital-link{border-color:#546d91}.composer:focus-within{border-color:#91b5f5}
