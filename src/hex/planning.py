@@ -14,6 +14,7 @@ _error = None
 
 def versions(conn):
     status = conn.execute('SELECT COALESCE(SUM(version),0) FROM reported_status').fetchone()[0]
+    status += conn.execute('SELECT COALESCE(SUM(version),0) FROM hospital_capabilities').fetchone()[0]
     constraints = conn.execute('SELECT COALESCE(SUM(version),0) FROM hospital_constraints').fetchone()[0]
     settings = conn.execute('SELECT version FROM network_settings WHERE id=1').fetchone()[0]
     return status, constraints + settings

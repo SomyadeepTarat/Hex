@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 
 EMERGENCY = {'severe_breathing_difficulty', 'unconscious', 'severe_chest_pain', 'uncontrolled_bleeding'}
-SERVICES = {'cough': 'respiratory', 'shortness_of_breath': 'respiratory', 'fever': 'general', 'fatigue': 'general', 'vomiting': 'general', 'diarrhea': 'general'}
+SERVICES = {'cough': 'respiratory', 'shortness_of_breath': 'respiratory', 'fever': 'general', 'fatigue': 'general', 'vomiting': 'general', 'diarrhea': 'general', 'stomach_pain': 'general'}
 
 def records(value):
     return list(value.values()) if isinstance(value, dict) else list(value)

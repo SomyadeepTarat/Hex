@@ -1,0 +1,5 @@
+{
+  "HOSP-01": {"specialties": ["general_medicine"], "resources": {"oxygen_stations": 2, "xray_slots": 0, "pediatric_beds": 0}, "notes": "Fictional community facility. Basic respiratory assessment; no reported pulmonology team."},
+  "HOSP-02": {"specialties": ["general_medicine", "pulmonology", "orthopedics"], "resources": {"oxygen_stations": 8, "xray_slots": 6, "pediatric_beds": 0}, "notes": "Fictional specialist facility. Respiratory and orthopedic services."},
+  "HOSP-03": {"specialties": ["general_medicine", "pediatrics", "dermatology"], "resources": {"oxygen_stations": 4, "xray_slots": 3, "pediatric_beds": 12}, "notes": "Fictional district facility. Pediatric and dermatology services."}
+}

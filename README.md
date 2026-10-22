@@ -65,3 +65,43 @@ PYTHONPATH=src:. .venv/bin/python -m unittest discover -s tests -v
 ```
 
 Tests cover matching, emergency bypass, unknown/stale status, budget and transfer limits, reproducibility, ML holdouts, API authorization, preview/apply/audit, stale proposals, superseded runs, and failure isolation.
+
+## Symptom chat and Groq explanations
+
+The patient finder accepts free text, quick examples, symptom checkboxes, an optional requested specialist, and explicitly requested resources. It shows what it understood and asks for clarification when the request is unclear. It matches current reported services, specialist capabilities, resources and accepting status, then distance. It explains why a closer hospital was excluded. It does not infer a diagnosis, admission requirement, or oxygen prescription from a symptom.
+
+For example, choose **Central / ZONE-03** and use **Lung specialist**: Riverside (10 synthetic km) is suggested because it reports pulmonology; Central (5 synthetic km) reports general medicine only. Ordinary cough/fever without a specialist request prefers the nearer current suitable hospital. Hospital operators can publish updated expertise/resources in **Report expertise and resources**. Both operational and capability reports become stale after 15 minutes.
+
+Distances in `data/synthetic/demo_distances.json` are fictional demonstration routes. Capabilities in `data/synthetic/hospital_capabilities.json` are synthetic initial reports, persisted centrally. They are not real facility measurements, travel times, physician schedules, or quality ratings. Actual deployment needs verified facility feeds and measured routes.
+
+To enable Groq, edit the Git-ignored `.env` file locally:
+
+```dotenv
+GROQ_API_KEY=your_key_here
+GROQ_MODEL=openai/gpt-oss-20b
+```
+
+Restart the server after configuration changes, then explicitly check **Use Groq** in the patient finder. Your symptom description and selected tags are sent to Groq only for that submitted request. Public requests are not persisted as cases or stored in ordinary application logs. No API key is returned to the browser. A configured key is not a guarantee of working billing/model permissions; provider errors are shown, with a local fallback.
+
+Groq extracts allowlisted symptom tags; inferred specialist/resource requirements need confirmation instead of silently becoming hard requirements. For explanations, Groq selects and orders IDs of server-verified factual sentences. The app renders those sentences verbatim, so the model cannot invent capabilities, distances or a different hospital. This is deliberately grounded explanation curation rather than unrestricted clinical prose. Emergency cues bypass model requests. Groq uses the official Groq Chat Completions endpoint with structured outputs, a 12-second request timeout, at most 1,000 output tokens per call, and a process-wide limit of eight calls per minute. A free-text submission uses at most two calls; automatic five-second refreshes use local matching and make no Groq requests.
+
+References: [Groq structured outputs](https://console.groq.com/docs/structured-outputs). Emergency bypass cues include severe breathing difficulty and chest pain; see [NHS symptom guidance](https://www.nhs.uk/symptoms/shortness-of-breath/). The finite demo cue list is not a validated triage system.
+
+Planning controls now show inline saved values and validation errors. “Set my extra beds to 12” uses the signed-in hospital; the administrator can use the selected hospital. “Set budget to 100”, “Set scenario count to 100”, and “Set horizon days to 14” are network-only changes. Preview → Apply → audit → recompute remains mandatory. A one-day horizon with spare capacity can legitimately recommend baseline after a successful save; the workspace now explains that outcome explicitly.
+
+### Repeatable symptom-chat walkthrough
+
+1. Restart the unified server and open `/hospital/`. Choose **Network administrator** in the same workspace.
+2. Click **Publish fresh synthetic network reports** to explicitly replay the saved synthetic values as new reports. This avoids stale status during a presentation without pretending that a real hospital feed is connected.
+3. Open `/find-care/`, choose **Central / ZONE-03**, and click **Lung specialist** then **Find and explain**. Riverside at 10 synthetic km should be suggested; the explanation states why Central at 5 km was not chosen.
+4. Try **Cough & fever** instead. Without a specialist/resource request, the nearer current suitable hospital is preferred.
+5. Publish different expertise/resources or accepting status from the hospital workspace. The patient view recomputes locally within five seconds without additional Groq calls.
+6. Test Groq separately by enabling the checkbox for an intentional submission. If Groq denies access, check your Groq billing and team/model permissions. The local result is explicitly identified.
+
+### Broader free-text concerns and useful failures
+
+The interpreter supports a general-assessment category for recognizable health concerns beyond the named symptom tags. Groq distinguishes health-related requests from unrelated inputs; clear health concerns can receive a general-assessment option without forcing the user to choose an exact symptom label. Optional questions such as duration can accompany a suggestion rather than blocking it. This is navigation support, not diagnosis or a guarantee of correct interpretation of every possible message.
+
+Local fallback recognizes stomach-ache variants and additional common concerns such as headache, sore throat, back pain, dizziness and body-part pain. A provider error does not suppress a valid local match. An explicitly requested specialist or resource is never silently dropped: missing requirements remain visible, and unreported specialist expertise is not invented.
+
+Failures distinguish unclear requests, stale/missing reports, non-accepting hospitals, missing requirements and absent network data. Each has a specific title and next step; the same clarification is not repeated twice. Stomach pain has a quick example and a symptom checkbox. Sudden/severe abdominal-pain cues bypass ordinary ranking, consistent with [NHS stomach-ache guidance](https://www.nhs.uk/symptoms/stomach-ache/); the finite cue list is not a validated triage system.

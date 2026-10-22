@@ -96,6 +96,42 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.call('GET','/api/public/hospitals')[0],200)
         self.assertEqual(planning.state()['error'],'forced failure')
         planning.worker()
+    def test_settings_saved_and_natural_language_controls(self):
+        desired=dict(budget_units=10,scenario_count=100,horizon_days=1)
+        self.assertEqual(self.call('PUT','/api/planning/settings',desired,self.admin)[0],200)
+        saved=self.call('GET','/api/planning/state',token=self.admin)[1]['settings']
+        for k,v in desired.items():self.assertEqual(saved[k],v)
+        p=self.call('POST','/api/chat/proposals',dict(message='Set my extra beds to 12.'),self.hospital)[1]
+        self.assertEqual(p['new_value'],12)
+        self.assertEqual(self.call('POST',f"/api/chat/proposals/{p['proposal_id']}/apply",token=self.hospital)[0],200)
+        p=self.call('POST','/api/chat/proposals',dict(message='Set extra beds to 4.',hospital_id='HOSP-02'),self.admin)[1]
+        self.assertEqual((p['target'],p['new_value']),('HOSP-02',4))
+        p=self.call('POST','/api/chat/proposals',dict(message='Set horizon days to 14.'),self.admin)[1]
+        self.assertEqual(p['new_value'],14)
+        self.assertEqual(self.call('POST',f"/api/chat/proposals/{p['proposal_id']}/apply",token=self.admin)[0],200)
+    def test_capabilities_match_and_permissions(self):
+        before=self.call('GET','/api/public/hospitals')[1]['hospitals'][0]
+        self.assertIn('resources',before)
+        payload=dict(specialties=['general_medicine','pulmonology'],oxygen_stations=5,xray_slots=2,pediatric_beds=0)
+        self.assertEqual(self.call('PUT','/api/hospitals/HOSP-02/capabilities',payload,self.hospital)[0],403)
+        self.assertEqual(self.call('PUT','/api/hospitals/HOSP-01/capabilities',payload,self.hospital)[0],200)
+        result=self.call('POST','/api/public/recommendations',dict(message='I want a pulmonologist for my cough',zone_id='ZONE-03'))[1]
+        self.assertEqual(result['suggested_hospital_id'],'HOSP-01')
+        self.assertIn('pulmonology',result['explanation'])
+    def test_explicit_synthetic_report_refresh(self):
+        self.assertEqual(self.call('POST','/api/demo/refresh-reports',token=self.hospital)[0],403)
+        with db.connect() as conn:
+            conn.execute('UPDATE reported_status SET reported_at=?',('2020-01-01T00:00:00Z',))
+            conn.execute('UPDATE hospital_capabilities SET reported_at=?',('2020-01-01T00:00:00Z',))
+        query=dict(message='I want a pulmonologist for my cough',zone_id='ZONE-03')
+        self.assertIsNone(self.call('POST','/api/public/recommendations',query)[1]['suggested_hospital_id'])
+        self.assertEqual(self.call('POST','/api/demo/refresh-reports',token=self.admin)[0],200)
+        self.assertEqual(self.call('POST','/api/public/recommendations',query)[1]['suggested_hospital_id'],'HOSP-02')
+    def test_no_key_exposure(self):
+        response=self.call('GET','/api/public/assistant-status')[1]
+        self.assertEqual(set(response),{'configured','model'})
+        self.assertEqual(self.call('POST','/api/public/recommendations',dict(message=''))[0],422)
+
     def test_synthetic_feed_role_and_emergency(self):
         self.assertEqual(self.call('POST','/api/demo/feed/normal',token=self.hospital)[0],403)
         self.assertEqual(self.call('POST','/api/demo/feed/normal',token=self.admin)[0],200)

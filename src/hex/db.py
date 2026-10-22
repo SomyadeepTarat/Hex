@@ -47,6 +47,10 @@ def init_db():
         CREATE TABLE IF NOT EXISTS case_signals (case_id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS proposals (proposal_id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, payload TEXT NOT NULL,
             status_version INTEGER NOT NULL, constraints_version INTEGER NOT NULL, applied INTEGER NOT NULL DEFAULT 0);
+        CREATE TABLE IF NOT EXISTS hospital_capabilities (
+            hospital_id TEXT PRIMARY KEY REFERENCES hospitals(hospital_id),
+            payload TEXT NOT NULL, reported_at TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1
+        );
         CREATE TABLE IF NOT EXISTS hospitals (
             hospital_id TEXT PRIMARY KEY, name TEXT NOT NULL, zone_id TEXT NOT NULL,
             services TEXT NOT NULL, emergency_service_available INTEGER NOT NULL DEFAULT 1
@@ -112,6 +116,12 @@ def init_db():
                 salt = secrets.token_bytes(16)
                 db.execute("INSERT INTO users VALUES (?,?,?,?,?,?)", (
                     actor_id, username, role, hospital_id, salt.hex(), _password_hash(password, salt)))
+
+    profiles = json.loads((ROOT / 'data/synthetic/hospital_capabilities.json').read_text())
+    with connect() as conn:
+        for hid, profile in profiles.items():
+            if conn.execute('SELECT 1 FROM hospitals WHERE hospital_id=?', (hid,)).fetchone():
+                conn.execute('INSERT OR IGNORE INTO hospital_capabilities(hospital_id,payload,reported_at) VALUES(?,?,?)', (hid, json.dumps(profile), now()))
 
 
 def authenticate(username: str, password: str):

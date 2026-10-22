@@ -6,10 +6,12 @@ from uuid import uuid4
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, AliasChoices
 from . import db, planning
 from .facility_recommendation import recommend_facilities
 from .constraint_parser import parse_constraint_message
+from .care_matching import interpret, match_care, explain_with_groq
+from . import groq
 
 app = FastAPI(title='HEX central hospital system')
 
@@ -30,10 +32,20 @@ class Settings(Input):
     scenario_count: int = Field(ge=1, le=500, strict=True)
     horizon_days: int = Field(ge=1, le=60, strict=True)
 class Search(Input):
-    symptoms: list[str] = Field(min_length=1, max_length=30)
+    symptoms: list[str] = Field(default_factory=list, max_length=30)
+    message: str = Field(default='', max_length=1500)
     zone_id: str | None = None
+    requested_specialty: str | None = None
+    requested_resources: list[str] = Field(default_factory=list, max_length=3)
+    use_groq: bool = Field(default=False, validation_alias=AliasChoices('use_groq', 'use_grok'))
 class Message(Input):
     message: str = Field(min_length=1, max_length=1000)
+    hospital_id: str | None = None
+class Capabilities(Input):
+    specialties: list[str] = Field(max_length=5)
+    oxygen_stations: int = Field(ge=0, le=1000, strict=True)
+    xray_slots: int = Field(ge=0, le=1000, strict=True)
+    pediatric_beds: int = Field(ge=0, le=1000, strict=True)
 
 
 def actor(authorization: str | None = Header(default=None)):
@@ -57,10 +69,16 @@ def audit(conn, user, target, operation, before, after):
 def hospital_rows():
     with db.connect() as conn:
         rows = [dict(r) for r in conn.execute('SELECT h.*,s.staffed_general_beds,s.occupied_general_beds,s.accepting_patients,s.reported_at,s.version FROM hospitals h LEFT JOIN reported_status s USING(hospital_id) ORDER BY hospital_id')]
+    with db.connect() as conn:
+        profiles = {r['hospital_id']: dict(r) for r in conn.execute('SELECT * FROM hospital_capabilities')}
     with db.ZONES_CSV.open() as handle:
         zones = list(csv.DictReader(handle))
     for row in rows:
         row['services'] = json.loads(row['services'])
+        if row['hospital_id'] in profiles:
+            profile = profiles[row['hospital_id']]
+            row.update(json.loads(profile['payload']))
+            row['capabilities_reported_at'] = profile['reported_at']
         row['accepting_patients'] = bool(row['accepting_patients']) if row['accepting_patients'] is not None else None
         row['neighboring_zones'] = next(z['neighboring_zones'].split('|') for z in zones if z['zone_id'] == row['zone_id'])
     return rows, zones
@@ -85,14 +103,46 @@ def recommendations(payload: Search):
     hospitals, zones = hospital_rows()
     if payload.zone_id and payload.zone_id not in {z['zone_id'] for z in zones}:
         raise HTTPException(422, 'Unknown zone')
-    aliases = {'breathlessness': 'shortness_of_breath', 'nausea': 'vomiting', 'cannot_breathe': 'severe_breathing_difficulty', 'chest_pain': 'severe_chest_pain', 'blue_lips': 'severe_breathing_difficulty'}
-    symptoms = [aliases.get(s.strip().lower().replace(' ', '_'), s.strip().lower().replace(' ', '_')) for s in payload.symptoms]
-    result = recommend_facilities(symptoms, payload.zone_id, hospitals, hospitals, datetime.now(timezone.utc))
-    for h in result['alternatives']:
-        source = next(r for r in hospitals if r['hospital_id'] == h['hospital_id'])
-        h.update(name=source['name'], zone_id=source['zone_id'])
-    result['suggested_facility'] = next((h for h in result['alternatives'] if h['hospital_id'] == result['suggested_hospital_id']), None)
+    from .care_matching import SPECIALTIES, RESOURCES
+    if payload.requested_specialty and payload.requested_specialty not in SPECIALTIES:
+        raise HTTPException(422, 'Unknown specialty preference')
+    if set(payload.requested_resources) - RESOURCES:
+        raise HTTPException(422, 'Unknown resource preference')
+    if not payload.symptoms and not payload.message.strip() and not payload.requested_specialty and not payload.requested_resources:
+        raise HTTPException(422, 'Select symptoms, describe your concern, or specify the service you are seeking.')
+    needs = interpret(payload.message, payload.symptoms, payload.use_groq, {'specialty': payload.requested_specialty, 'resources': payload.requested_resources})
+    if payload.requested_specialty:
+        needs['requested_specialty'] = payload.requested_specialty
+    needs['requested_resources'] = sorted(set(needs['requested_resources']) | set(payload.requested_resources))
+    if (payload.requested_specialty or payload.requested_resources) and not needs['symptom_tags']:
+        needs['clarification'] = None
+    result = match_care(needs, payload.zone_id, hospitals, datetime.now(timezone.utc))
+    result['interpretation'] = needs
+    result['provider_notice'] = needs['provider_notice']
+    if payload.use_groq and not needs['provider_notice']:
+        result = explain_with_groq(result)
     return result
+
+@app.get('/api/public/assistant-status')
+def assistant_status():
+    return groq.configured()
+
+@app.put('/api/hospitals/{hid}/capabilities')
+def update_capabilities(hid: str, payload: Capabilities, user=Depends(operator)):
+    from .care_matching import SPECIALTIES
+    own(user, hid)
+    if not payload.specialties or set(payload.specialties) - SPECIALTIES:
+        raise HTTPException(422, 'Select at least one supported specialty')
+    profile = dict(specialties=sorted(set(payload.specialties)), resources={k:getattr(payload,k) for k in ('oxygen_stations','xray_slots','pediatric_beds')})
+    with db.connect() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        old = conn.execute('SELECT * FROM hospital_capabilities WHERE hospital_id=?', (hid,)).fetchone()
+        if not old:
+            raise HTTPException(404, 'Hospital capability profile not found')
+        conn.execute('UPDATE hospital_capabilities SET payload=?,reported_at=?,version=version+1 WHERE hospital_id=?', (json.dumps(profile), db.now(), hid))
+        audit(conn, user, hid, 'report_capabilities', json.loads(old['payload']), profile)
+    planning.request_run()
+    return dict(ok=True, capabilities=profile)
 
 @app.post('/api/auth/login')
 def login(payload: Login):
@@ -139,7 +189,7 @@ def update_constraints(hid: str, payload: Constraints, user=Depends(operator)):
         conn.execute('UPDATE hospital_constraints SET max_additional_staffed_beds=?,transfer_out_limit_per_day=?,version=version+1 WHERE hospital_id=?', (*payload.model_dump().values(), hid))
         audit(conn, user, hid, 'planning_constraints', dict(old), payload.model_dump())
     planning.request_run()
-    return dict(ok=True)
+    return dict(ok=True, saved=payload.model_dump(), message='Planning limits saved. They cap possible actions; no operational beds are added.')
 
 @app.put('/api/planning/settings')
 def update_settings(payload: Settings, user=Depends(operator)):
@@ -151,7 +201,7 @@ def update_settings(payload: Settings, user=Depends(operator)):
         conn.execute('UPDATE network_settings SET budget_units=?,scenario_count=?,horizon_days=?,version=version+1 WHERE id=1', tuple(payload.model_dump().values()))
         audit(conn, user, 'network', 'network_settings', old, payload.model_dump())
     planning.request_run()
-    return dict(ok=True)
+    return dict(ok=True, saved=payload.model_dump(), message='Network settings saved. A new versioned plan has been queued.')
 
 @app.get('/api/planning/state')
 def state(user=Depends(operator)):
@@ -172,7 +222,10 @@ def proposal(payload: Message, user=Depends(operator)):
     with db.connect() as conn:
         conn.execute('BEGIN IMMEDIATE')
         current = dict(hospitals=[dict(r) for r in conn.execute('SELECT h.hospital_id,h.name,c.max_additional_staffed_beds,c.transfer_out_limit_per_day FROM hospitals h JOIN hospital_constraints c USING(hospital_id)')], settings=dict(conn.execute('SELECT * FROM network_settings WHERE id=1').fetchone()))
-        result = parse_constraint_message(payload.message, user, current)
+        context = {**user, 'selected_hospital_id': payload.hospital_id}
+        if payload.hospital_id:
+            own(user, payload.hospital_id)
+        result = parse_constraint_message(payload.message, context, current)
         if result['action'] == 'propose_change':
             pid = str(uuid4())
             conn.execute('INSERT INTO proposals(proposal_id,actor_id,payload,status_version,constraints_version) VALUES(?,?,?,?,?)', (pid, user['actor_id'], json.dumps(result), *planning.versions(conn)))
@@ -192,11 +245,11 @@ def apply(pid: str, user=Depends(operator)):
             raise HTTPException(409, 'Proposal is stale or already applied. Request a new preview.')
         p = json.loads(row['payload'])
         own(user, p['target'])
-        fields = {'budget_units', 'scenario_count', 'max_additional_staffed_beds', 'transfer_out_limit_per_day'}
+        fields = {'budget_units', 'scenario_count', 'horizon_days', 'max_additional_staffed_beds', 'transfer_out_limit_per_day'}
         if p['field'] not in fields:
             raise HTTPException(422, 'Unsupported field')
         if p['target'] == 'network':
-            if user['role'] != 'government' or p['field'] not in {'budget_units', 'scenario_count'}:
+            if user['role'] != 'government' or p['field'] not in {'budget_units', 'scenario_count', 'horizon_days'}:
                 raise HTTPException(403, 'Network administrator required')
             conn.execute(f"UPDATE network_settings SET {p['field']}=?,version=version+1 WHERE id=1", (p['new_value'],))
         else:
@@ -231,6 +284,20 @@ def demo_feed(mode: str, user=Depends(operator)):
         audit(conn, user, 'network', 'synthetic_feed', {'case_count': old_count}, {'mode': mode, 'case_count': len(cases)})
     planning.request_run()
     return dict(ok=True, case_count=len(cases), mode=mode)
+
+@app.post('/api/demo/refresh-reports')
+def refresh_demo_reports(user=Depends(operator)):
+    if user['role'] != 'government':
+        raise HTTPException(403, 'Network administrator required to publish synthetic network reports')
+    stamp = db.now()
+    with db.connect() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        before = [dict(r) for r in conn.execute('SELECT hospital_id,reported_at,version FROM reported_status')]
+        conn.execute('UPDATE reported_status SET reported_at=?,version=version+1', (stamp,))
+        conn.execute('UPDATE hospital_capabilities SET reported_at=?,version=version+1', (stamp,))
+        audit(conn, user, 'network', 'publish_synthetic_reports', before, {'reported_at': stamp, 'notice': 'Explicit demo replay: republished saved synthetic status and capability values; no real reports received.'})
+    planning.request_run()
+    return dict(ok=True, message='Republished the saved synthetic network values as new demo reports. No real hospital feed is connected.')
 
 @app.get('/api/ml/evaluation')
 def ml_evaluation(user=Depends(operator)):
