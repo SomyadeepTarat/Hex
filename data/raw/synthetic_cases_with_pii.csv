@@ -1,0 +1,9 @@
+patient_name,phone,patient_id,exact_address,reported_at,hospital_id,age,symptoms,severity,admitted
+Alex Example,202-555-0101,DEMO-1001,100 Example Street,2026-10-20T08:15:00Z,HOSP-01,24,fever|fatigue|cough,moderate,true
+Jordan Sample,202-555-0102,DEMO-1002,200 Sample Avenue,2026-10-20T09:40:00Z,HOSP-02,32,fever|shortness_of_breath,severe,true
+Casey Demo,202-555-0103,DEMO-1003,300 Fiction Road,2026-10-20T11:05:00Z,HOSP-01,17,fever|fatigue,mild,false
+Taylor Placeholder,202-555-0104,DEMO-1004,400 Mockingbird Lane,2026-10-21T07:50:00Z,HOSP-03,54,fever|cough|shortness_of_breath,moderate,true
+Riley Example,202-555-0105,DEMO-1005,500 Example Street,2026-10-21T12:20:00Z,HOSP-02,28,nausea|fatigue|fever,mild,false
+Morgan Sample,202-555-0106,DEMO-1006,600 Sample Avenue,2026-10-21T16:10:00Z,HOSP-03,64,fever|shortness_of_breath,severe,true
+Jamie Demo,202-555-0107,DEMO-1007,700 Fiction Road,2026-10-22T06:30:00Z,HOSP-01,36,fever|fatigue|cough,moderate,true
+Drew Placeholder,202-555-0108,DEMO-1008,800 Mockingbird Lane,2026-10-22T10:45:00Z,HOSP-02,43,fever|cough,mild,false

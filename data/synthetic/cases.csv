@@ -1,9 +1,0 @@
-case_id,reported_at,hospital_id,zone_id,age_band,symptoms,severity,admitted
-SYN-0001,2026-10-20T08:15:00Z,HOSP-01,ZONE-03,20-29,fever|fatigue|cough,moderate,true
-SYN-0002,2026-10-20T09:40:00Z,HOSP-02,ZONE-03,30-39,fever|shortness_of_breath,severe,true
-SYN-0003,2026-10-20T11:05:00Z,HOSP-01,ZONE-04,10-19,fever|fatigue,mild,false
-SYN-0004,2026-10-21T07:50:00Z,HOSP-03,ZONE-04,50-59,fever|cough|shortness_of_breath,moderate,true
-SYN-0005,2026-10-21T12:20:00Z,HOSP-02,ZONE-03,20-29,nausea|fatigue|fever,mild,false
-SYN-0006,2026-10-21T16:10:00Z,HOSP-03,ZONE-05,60-69,fever|shortness_of_breath,severe,true
-SYN-0007,2026-10-22T06:30:00Z,HOSP-01,ZONE-04,30-39,fever|fatigue|cough,moderate,true
-SYN-0008,2026-10-22T10:45:00Z,HOSP-02,ZONE-05,40-49,fever|cough,mild,false
