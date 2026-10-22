@@ -1,187 +1,249 @@
-"""FastAPI endpoints for the fictional HEX demo."""
-from __future__ import annotations
-
+"""Unified HEX demo: public finder + hospital workspace, one central database."""
+import csv
 import json
 from datetime import datetime, timezone
-
+from uuid import uuid4
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field, ConfigDict
+from . import db, planning
+from .facility_recommendation import recommend_facilities
+from .constraint_parser import parse_constraint_message
 
-from src.hex import db
+app = FastAPI(title='HEX central hospital system')
 
-app = FastAPI(title="HEX demo API", version="0.1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["*"], allow_headers=["*"])
-
-
-class LoginInput(BaseModel):
+class Input(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+class Login(Input):
     username: str
     password: str
-
-
-class StatusInput(BaseModel):
-    staffed_general_beds: int = Field(ge=0, le=10000)
-    occupied_general_beds: int = Field(ge=0, le=10000)
+class Status(Input):
+    staffed_general_beds: int = Field(ge=0, le=10000, strict=True)
+    occupied_general_beds: int = Field(ge=0, le=10000, strict=True)
     accepting_patients: bool
-
-
-class ConstraintInput(BaseModel):
-    max_additional_staffed_beds: int = Field(ge=0, le=10000)
-    transfer_out_limit_per_day: int = Field(ge=0, le=10000)
-
-
-class RecommendationInput(BaseModel):
-    symptoms: list[str] = Field(default_factory=list, max_length=30)
+class Constraints(Input):
+    max_additional_staffed_beds: int = Field(ge=0, le=500, strict=True)
+    transfer_out_limit_per_day: int = Field(ge=0, le=500, strict=True)
+class Settings(Input):
+    budget_units: int = Field(ge=0, le=100000, strict=True)
+    scenario_count: int = Field(ge=1, le=500, strict=True)
+    horizon_days: int = Field(ge=1, le=60, strict=True)
+class Search(Input):
+    symptoms: list[str] = Field(min_length=1, max_length=30)
     zone_id: str | None = None
+class Message(Input):
+    message: str = Field(min_length=1, max_length=1000)
 
 
 def actor(authorization: str | None = Header(default=None)):
-    token = authorization.removeprefix("Bearer ") if authorization else None
-    user = db.get_actor(token)
+    user = db.get_actor(authorization.removeprefix('Bearer ') if authorization else None)
     if not user:
-        raise HTTPException(401, "Authentication required")
+        raise HTTPException(401, 'Sign in to the hospital workspace')
     return dict(user)
 
+def operator(user=Depends(actor)):
+    if user['role'] not in ('hospital', 'government'):
+        raise HTTPException(403, 'Hospital workspace access required')
+    return user
 
-def require(*roles):
-    def check(user=Depends(actor)):
-        if user["role"] not in roles:
-            raise HTTPException(403, "Role is not allowed to perform this action")
-        return user
-    return check
+def own(user, hid):
+    if user['role'] != 'government' and user['hospital_id'] != hid:
+        raise HTTPException(403, 'You can update only your own hospital')
 
+def audit(conn, user, target, operation, before, after):
+    conn.execute('INSERT INTO audit_events(actor_id,actor_role,target,operation,before_json,after_json,created_at) VALUES(?,?,?,?,?,?,?)', (user['actor_id'], user['role'], target, operation, json.dumps(before), json.dumps(after), db.now()))
 
 def hospital_rows():
     with db.connect() as conn:
-        rows = conn.execute("""SELECT h.*,s.staffed_general_beds,s.occupied_general_beds,
-            s.accepting_patients,s.reported_at,s.version AS status_version
-            FROM hospitals h LEFT JOIN reported_status s USING(hospital_id) ORDER BY h.hospital_id""").fetchall()
-    return [{**dict(row), "services": json.loads(row["services"]),
-             "accepting_patients": None if row["accepting_patients"] is None else bool(row["accepting_patients"])} for row in rows]
+        rows = [dict(r) for r in conn.execute('SELECT h.*,s.staffed_general_beds,s.occupied_general_beds,s.accepting_patients,s.reported_at,s.version FROM hospitals h LEFT JOIN reported_status s USING(hospital_id) ORDER BY hospital_id')]
+    with db.ZONES_CSV.open() as handle:
+        zones = list(csv.DictReader(handle))
+    for row in rows:
+        row['services'] = json.loads(row['services'])
+        row['accepting_patients'] = bool(row['accepting_patients']) if row['accepting_patients'] is not None else None
+        row['neighboring_zones'] = next(z['neighboring_zones'].split('|') for z in zones if z['zone_id'] == row['zone_id'])
+    return rows, zones
 
-
-@app.on_event("startup")
+@app.on_event('startup')
 def startup():
     db.init_db()
+    db.seed_cases()
+    planning.request_run()
 
-
-@app.get("/api/health")
+@app.get('/api/health')
 def health():
-    return {"status": "ok", "environment": "simulated live data"}
+    return dict(status='ok', environment='Synthetic demo')
 
-
-@app.get("/api/public/hospitals")
+@app.get('/api/public/hospitals')
 def public_hospitals():
-    return {"hospitals": hospital_rows(), "environment": "Simulated live data"}
+    hospitals, zones = hospital_rows()
+    return dict(hospitals=hospitals, zones=zones, environment='Synthetic demo')
 
-
-@app.post("/api/public/recommendations")
-def recommendations(payload: RecommendationInput):
-    # Emergency bypass is deliberately conservative and precedes facility ranking.
-    symptoms = {s.strip().lower().replace(" ", "_") for s in payload.symptoms}
-    emergency = bool(symptoms & {"severe_breathing_difficulty", "cannot_breathe", "chest_pain", "blue_lips"})
-    rows = hospital_rows()
-    if emergency:
-        return {"emergency_guidance_required": True, "guidance": "These symptoms may need urgent emergency attention. Contact local emergency services or seek immediate care; do not wait for this facility finder.", "service_category": "emergency", "suggested_hospital_id": None, "alternatives": [], "limitations": ["This tool cannot assess or diagnose emergencies."]}
-    respiratory = bool(symptoms & {"cough", "shortness_of_breath", "breathlessness", "fever"})
-    service = "respiratory" if respiratory else "general"
-    now = datetime.now(timezone.utc)
-    candidates = []
-    for row in rows:
-        reported = datetime.fromisoformat(row["reported_at"]) if row["reported_at"] else None
-        age_minutes = (now - reported.astimezone(timezone.utc)).total_seconds() / 60 if reported else None
-        freshness = "unknown" if age_minutes is None else "current" if age_minutes <= 30 else "stale"
-        available = None if row["staffed_general_beds"] is None or row["occupied_general_beds"] is None else max(0, row["staffed_general_beds"] - row["occupied_general_beds"])
-        reasons = []
-        if service in row["services"]: reasons.append(f"Reports {service} services")
-        if payload.zone_id and row["zone_id"] == payload.zone_id: reasons.append("Located in your selected zone")
-        if row["accepting_patients"]: reasons.append("Currently reports accepting patients")
-        if available is not None: reasons.append(f"Reports {available} staffed general beds available")
-        candidates.append({"hospital_id": row["hospital_id"], "name": row["name"], "zone_id": row["zone_id"], "match_reasons": reasons, "availability_state": "accepting" if row["accepting_patients"] else "not_accepting" if row["accepting_patients"] is False else "unknown", "available_staffed_beds": available, "reported_at": row["reported_at"], "freshness_state": freshness})
-    candidates.sort(key=lambda h: (h["availability_state"] != "accepting", h["freshness_state"] != "current", -len(h["match_reasons"]), -(h["available_staffed_beds"] or 0)))
-    available_candidates = [h for h in candidates if h["availability_state"] == "accepting" and h["freshness_state"] == "current"]
-    selected = available_candidates[0] if available_candidates else None
-    return {"emergency_guidance_required": False, "service_category": service, "suggested_hospital_id": selected["hospital_id"] if selected else None, "suggested_facility": selected, "alternatives": candidates, "limitations": ["Suggestions match reported services and status; they are not a diagnosis or guarantee of a bed or admission.", "Availability is reported by the facility and should be confirmed directly.", "Location uses zones, not route distance."]}
-
-
-@app.post("/api/auth/login")
-def login(payload: LoginInput):
-    result = db.authenticate(payload.username, payload.password)
-    if not result: raise HTTPException(401, "Invalid username or password")
+@app.post('/api/public/recommendations')
+def recommendations(payload: Search):
+    hospitals, zones = hospital_rows()
+    if payload.zone_id and payload.zone_id not in {z['zone_id'] for z in zones}:
+        raise HTTPException(422, 'Unknown zone')
+    aliases = {'breathlessness': 'shortness_of_breath', 'nausea': 'vomiting', 'cannot_breathe': 'severe_breathing_difficulty', 'chest_pain': 'severe_chest_pain', 'blue_lips': 'severe_breathing_difficulty'}
+    symptoms = [aliases.get(s.strip().lower().replace(' ', '_'), s.strip().lower().replace(' ', '_')) for s in payload.symptoms]
+    result = recommend_facilities(symptoms, payload.zone_id, hospitals, hospitals, datetime.now(timezone.utc))
+    for h in result['alternatives']:
+        source = next(r for r in hospitals if r['hospital_id'] == h['hospital_id'])
+        h.update(name=source['name'], zone_id=source['zone_id'])
+    result['suggested_facility'] = next((h for h in result['alternatives'] if h['hospital_id'] == result['suggested_hospital_id']), None)
     return result
 
+@app.post('/api/auth/login')
+def login(payload: Login):
+    result = db.authenticate(payload.username, payload.password)
+    if not result:
+        raise HTTPException(401, 'Invalid username or password')
+    return result
 
-@app.post("/api/auth/logout")
-def logout(user=Depends(actor), authorization: str | None = Header(default=None)):
-    token = authorization.removeprefix("Bearer ")
-    import hashlib
-    with db.connect() as conn:
-        conn.execute("DELETE FROM sessions WHERE token_hash=?", (hashlib.sha256(token.encode()).hexdigest(),))
-    return {"ok": True}
-
-
-@app.get("/api/auth/me")
-def me(user=Depends(actor)):
+@app.get('/api/auth/me')
+def me(user=Depends(operator)):
     return user
 
-
-@app.put("/api/hospitals/{hospital_id}/status")
-def update_status(hospital_id: str, payload: StatusInput, user=Depends(require("hospital"))):
-    if user["hospital_id"] != hospital_id: raise HTTPException(403, "Hospital operators may update only their own hospital")
-    if payload.occupied_general_beds > payload.staffed_general_beds: raise HTTPException(422, "Occupied beds cannot exceed staffed beds")
-    stamp = db.now()
+@app.post('/api/auth/logout')
+def logout(user=Depends(actor), authorization: str = Header()):
+    import hashlib
     with db.connect() as conn:
-        old = conn.execute("SELECT * FROM reported_status WHERE hospital_id=?", (hospital_id,)).fetchone()
-        if not old: raise HTTPException(404, "Hospital not found")
-        version = old["version"] + 1
-        new = {**payload.model_dump(), "reported_at": stamp, "version": version}
-        conn.execute("UPDATE reported_status SET staffed_general_beds=?,occupied_general_beds=?,accepting_patients=?,reported_at=?,version=? WHERE hospital_id=?", (payload.staffed_general_beds,payload.occupied_general_beds,int(payload.accepting_patients),stamp,version,hospital_id))
-        conn.execute("INSERT INTO audit_events(actor_id,actor_role,target,operation,before_json,after_json,created_at) VALUES(?,?,?,?,?,?,?)", (user["actor_id"],user["role"],hospital_id,"update_reported_status",json.dumps(dict(old)),json.dumps(new),stamp))
-    return {"status": new}
+        conn.execute('DELETE FROM sessions WHERE token_hash=?', (hashlib.sha256(authorization.removeprefix('Bearer ').encode()).hexdigest(),))
+    return dict(ok=True)
 
-
-@app.put("/api/hospitals/{hospital_id}/constraints")
-def update_constraints(hospital_id: str, payload: ConstraintInput, user=Depends(require("hospital"))):
-    if user["hospital_id"] != hospital_id: raise HTTPException(403, "Hospital operators may update only their own hospital")
-    stamp = db.now()
+@app.put('/api/hospitals/{hid}/status')
+def update_status(hid: str, payload: Status, user=Depends(operator)):
+    own(user, hid)
+    if payload.occupied_general_beds > payload.staffed_general_beds:
+        raise HTTPException(422, 'Occupied beds cannot exceed staffed beds')
     with db.connect() as conn:
-        old = conn.execute("SELECT * FROM hospital_constraints WHERE hospital_id=?", (hospital_id,)).fetchone()
-        if not old: raise HTTPException(404, "Hospital not found")
-        version = old["version"] + 1
-        new = {**payload.model_dump(), "version": version}
-        conn.execute("UPDATE hospital_constraints SET max_additional_staffed_beds=?,transfer_out_limit_per_day=?,version=? WHERE hospital_id=?", (payload.max_additional_staffed_beds,payload.transfer_out_limit_per_day,version,hospital_id))
-        conn.execute("INSERT INTO audit_events(actor_id,actor_role,target,operation,before_json,after_json,created_at) VALUES(?,?,?,?,?,?,?)", (user["actor_id"],user["role"],hospital_id,"update_planning_constraints",json.dumps(dict(old)),json.dumps(new),stamp))
-    return {"constraints": new}
+        conn.execute('BEGIN IMMEDIATE')
+        old = conn.execute('SELECT * FROM reported_status WHERE hospital_id=?', (hid,)).fetchone()
+        if not old:
+            raise HTTPException(404, 'Hospital not found')
+        new = dict(**payload.model_dump(), reported_at=db.now(), version=old['version'] + 1)
+        conn.execute('UPDATE reported_status SET staffed_general_beds=?,occupied_general_beds=?,accepting_patients=?,reported_at=?,version=? WHERE hospital_id=?', (payload.staffed_general_beds, payload.occupied_general_beds, int(payload.accepting_patients), new['reported_at'], new['version'], hid))
+        audit(conn, user, hid, 'report_status', dict(old), new)
+    planning.request_run()
+    return dict(status=new)
 
-
-@app.get("/api/planning/state")
-def planning_state(user=Depends(require("government", "hospital"))):
+@app.put('/api/hospitals/{hid}/constraints')
+def update_constraints(hid: str, payload: Constraints, user=Depends(operator)):
+    own(user, hid)
     with db.connect() as conn:
-        constraints = conn.execute("SELECT * FROM hospital_constraints ORDER BY hospital_id").fetchall()
-        settings = conn.execute("SELECT * FROM network_settings WHERE id=1").fetchone()
-        result = conn.execute("SELECT * FROM plan_results ORDER BY id DESC LIMIT 1").fetchone()
-    if user["role"] == "hospital": constraints = [c for c in constraints if c["hospital_id"] == user["hospital_id"]]
-    return {"constraints": [dict(c) for c in constraints], "settings": dict(settings), "latest_result": dict(result) if result else None}
+        conn.execute('BEGIN IMMEDIATE')
+        old = conn.execute('SELECT * FROM hospital_constraints WHERE hospital_id=?', (hid,)).fetchone()
+        if not old:
+            raise HTTPException(404, 'Hospital not found')
+        conn.execute('UPDATE hospital_constraints SET max_additional_staffed_beds=?,transfer_out_limit_per_day=?,version=version+1 WHERE hospital_id=?', (*payload.model_dump().values(), hid))
+        audit(conn, user, hid, 'planning_constraints', dict(old), payload.model_dump())
+    planning.request_run()
+    return dict(ok=True)
 
-
-@app.put("/api/planning/settings")
-def update_settings(payload: dict, user=Depends(require("government"))):
-    allowed = {"scenario_count": (1, 10000), "horizon_days": (1, 365), "budget_units": (0, 1000000)}
-    if not payload or any(key not in allowed or not isinstance(value, int) or not allowed[key][0] <= value <= allowed[key][1] for key, value in payload.items()):
-        raise HTTPException(422, "Unsupported setting or value out of range")
+@app.put('/api/planning/settings')
+def update_settings(payload: Settings, user=Depends(operator)):
+    if user['role'] != 'government':
+        raise HTTPException(403, 'Network administrator required')
     with db.connect() as conn:
-        old = dict(conn.execute("SELECT * FROM network_settings WHERE id=1").fetchone())
-        changes = ",".join(f"{key}=?" for key in payload)
-        conn.execute(f"UPDATE network_settings SET {changes},version=version+1 WHERE id=1", (*payload.values(),))
-        new = dict(conn.execute("SELECT * FROM network_settings WHERE id=1").fetchone())
-        conn.execute("INSERT INTO audit_events(actor_id,actor_role,target,operation,before_json,after_json,created_at) VALUES(?,?,?,?,?,?,?)", (user["actor_id"],user["role"],"network","update_settings",json.dumps(old),json.dumps(new),db.now()))
-    return {"settings": new}
+        conn.execute('BEGIN IMMEDIATE')
+        old = dict(conn.execute('SELECT * FROM network_settings WHERE id=1').fetchone())
+        conn.execute('UPDATE network_settings SET budget_units=?,scenario_count=?,horizon_days=?,version=version+1 WHERE id=1', tuple(payload.model_dump().values()))
+        audit(conn, user, 'network', 'network_settings', old, payload.model_dump())
+    planning.request_run()
+    return dict(ok=True)
 
+@app.get('/api/planning/state')
+def state(user=Depends(operator)):
+    result = planning.state()
+    with db.connect() as conn:
+        result['constraints'] = [dict(r) for r in conn.execute('SELECT * FROM hospital_constraints') if user['role'] == 'government' or r['hospital_id'] == user['hospital_id']]
+        result['settings'] = dict(conn.execute('SELECT * FROM network_settings WHERE id=1').fetchone())
+        result['case_count'] = conn.execute('SELECT COUNT(*) FROM case_signals').fetchone()[0]
+    return result
 
-@app.get("/api/audit")
-def audit(user=Depends(require("government"))):
-    with db.connect() as conn: rows = conn.execute("SELECT * FROM audit_events ORDER BY id DESC LIMIT 100").fetchall()
-    return {"events": [dict(row) for row in rows]}
+@app.post('/api/planning/run')
+def run(user=Depends(operator)):
+    planning.request_run()
+    return dict(updating=True)
 
+@app.post('/api/chat/proposals')
+def proposal(payload: Message, user=Depends(operator)):
+    with db.connect() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        current = dict(hospitals=[dict(r) for r in conn.execute('SELECT h.hospital_id,h.name,c.max_additional_staffed_beds,c.transfer_out_limit_per_day FROM hospitals h JOIN hospital_constraints c USING(hospital_id)')], settings=dict(conn.execute('SELECT * FROM network_settings WHERE id=1').fetchone()))
+        result = parse_constraint_message(payload.message, user, current)
+        if result['action'] == 'propose_change':
+            pid = str(uuid4())
+            conn.execute('INSERT INTO proposals(proposal_id,actor_id,payload,status_version,constraints_version) VALUES(?,?,?,?,?)', (pid, user['actor_id'], json.dumps(result), *planning.versions(conn)))
+            result['proposal_id'] = pid
+        elif result['action'] == 'show_constraints':
+            result['current_constraints'] = [h for h in current['hospitals'] if user['role'] == 'government' or h['hospital_id'] == user['hospital_id']]
+    return result
 
-db.init_db()
+@app.post('/api/chat/proposals/{pid}/apply')
+def apply(pid: str, user=Depends(operator)):
+    with db.connect() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        row = conn.execute('SELECT * FROM proposals WHERE proposal_id=? AND actor_id=?', (pid, user['actor_id'])).fetchone()
+        if not row:
+            raise HTTPException(404, 'Proposal not found')
+        if row['applied'] or (row['status_version'], row['constraints_version']) != planning.versions(conn):
+            raise HTTPException(409, 'Proposal is stale or already applied. Request a new preview.')
+        p = json.loads(row['payload'])
+        own(user, p['target'])
+        fields = {'budget_units', 'scenario_count', 'max_additional_staffed_beds', 'transfer_out_limit_per_day'}
+        if p['field'] not in fields:
+            raise HTTPException(422, 'Unsupported field')
+        if p['target'] == 'network':
+            if user['role'] != 'government' or p['field'] not in {'budget_units', 'scenario_count'}:
+                raise HTTPException(403, 'Network administrator required')
+            conn.execute(f"UPDATE network_settings SET {p['field']}=?,version=version+1 WHERE id=1", (p['new_value'],))
+        else:
+            if p['field'] not in {'max_additional_staffed_beds', 'transfer_out_limit_per_day'}:
+                raise HTTPException(422, 'Unsupported hospital field')
+            conn.execute(f"UPDATE hospital_constraints SET {p['field']}=?,version=version+1 WHERE hospital_id=?", (p['new_value'], p['target']))
+        conn.execute('UPDATE proposals SET applied=1 WHERE proposal_id=?', (pid,))
+        audit(conn, user, p['target'], 'apply_proposal', {p['field']: p['old_value']}, {p['field']: p['new_value']})
+    planning.request_run()
+    return dict(ok=True)
+
+@app.get('/api/audit')
+def events(user=Depends(operator)):
+    with db.connect() as conn:
+        rows = conn.execute('SELECT * FROM audit_events ORDER BY id DESC LIMIT 100').fetchall()
+    return dict(events=[dict(r) for r in rows if user['role'] == 'government' or r['target'] == user['hospital_id']])
+
+@app.post('/api/demo/feed/{mode}')
+def demo_feed(mode: str, user=Depends(operator)):
+    if user['role'] != 'government':
+        raise HTTPException(403, 'Network administrator required for replacing the network case feed')
+    if mode not in {'normal', 'surge'}:
+        raise HTTPException(422, 'Choose normal or surge')
+    with (db.ROOT / f'data/synthetic/generated/cases_{mode}.csv').open() as handle:
+        cases = list(csv.DictReader(handle))
+    with db.connect() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        old_count = conn.execute('SELECT COUNT(*) FROM case_signals').fetchone()[0]
+        conn.execute('DELETE FROM case_signals')
+        conn.executemany('INSERT INTO case_signals VALUES(?,?)', [(r['case_id'], json.dumps(r)) for r in cases])
+        conn.execute('UPDATE network_settings SET version=version+1 WHERE id=1')
+        audit(conn, user, 'network', 'synthetic_feed', {'case_count': old_count}, {'mode': mode, 'case_count': len(cases)})
+    planning.request_run()
+    return dict(ok=True, case_count=len(cases), mode=mode)
+
+@app.get('/api/ml/evaluation')
+def ml_evaluation(user=Depends(operator)):
+    path = db.ROOT / 'models/evaluation.json'
+    return json.loads(path.read_text()) if path.exists() else dict(available=False)
+
+@app.get('/')
+def home():
+    return RedirectResponse('/find-care/')
+
+@app.get('/src/hex/dashboard/')
+def old_dashboard():
+    return RedirectResponse('/hospital/')
+
+app.mount('/find-care', StaticFiles(directory=str(db.ROOT / 'src/hex/public'), html=True), name='public')
+app.mount('/hospital', StaticFiles(directory=str(db.ROOT / 'src/hex/workspace'), html=True), name='hospital')

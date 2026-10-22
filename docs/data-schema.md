@@ -1,31 +1,14 @@
-# Demo data flow
+# Central data flow
 
-All CSVs in `data/raw/` are fictional inputs. The case, hospital, and zone inputs are re-read by the local demo pipeline; patient identifiers are dropped and age/location are generalized before simulated records are generated. Converted case/facility/zone objects are held in memory, not written back as CSVs.
+The supported demo now runs from `scripts/start.py`; see the root README for the complete walkthrough.
 
-The SQLite API separately stores reported hospital status and planning constraints. Initial staffed capacity and occupancy are seeded from the fictional hospital input as a demo assumption. Operational status is the only source used for public availability. Planning constraints do not add operational beds.
+- `data/raw/demo_hospitals.csv`, `demo_zones.csv`: fictional facility metadata, initial operational capacity assumptions and adjacency.
+- `data/synthetic/generated/cases_normal.csv`, `cases_surge.csv`: distinct synthetic hospital case feeds. Current selected feed is persisted in SQLite; public symptom searches never enter it.
+- `data/synthetic/ml_hospital_days.csv`: 26,028 aggregate synthetic hospital-days with lagged features, next-day admissions targets and persistence predictions. Recreated by `python -m src.hex.ml`.
+- `models/admission_model.json`: fitted coefficients, training means/scales, validation residual scale and evaluation.
+- `models/evaluation.json`: reproducible chronological and unseen-city test results.
+- `data/hex.db`: centrally persisted hospital metadata, reported status, hospital constraints, network settings, cases, proposals, audit and versioned results.
 
-## Run
+The current app serves `/find-care/` and `/hospital/` from the same FastAPI origin. There is no separate government interface, Vite dependency, or port-8001 service in this flow. The network administrator is another account in the shared hospital workspace.
 
-Start the FastAPI service from the repository root:
-
-```powershell
-uvicorn src.hex.api:app --reload --port 8000
-```
-
-Start the demo-data API in another terminal:
-
-```powershell
-python src/hex/privacy/server.py
-```
-
-Start the frontend in a third terminal:
-
-```powershell
-npm run dev
-```
-
-Open the public finder at `/src/hex/public/`, the government dashboard at `/src/hex/dashboard/`, and the hospital operator form at `/src/hex/dashboard/operations.html`.
-
-Seeded local accounts: `operator-hosp01` / `demo-hospital`, `operator-hosp02` / `demo-hospital`, `operator-hosp03` / `demo-hospital`, and `coordinator` / `demo-government`. These are demo credentials only.
-
-This setup demonstrates locally simulated data refresh. It is not connected to hospitals and must not be used with real patient records.
+All data is synthetic. Old privacy-server files are retained as a separate prototype and are not used by the unified application.

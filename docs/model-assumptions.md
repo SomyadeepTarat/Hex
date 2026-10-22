@@ -1,4 +1,8 @@
-# Person 1 engine and integration contract
+# Engine assumptions and original integration contract
+
+The unified application now implements persistence, authorization, API integration, recomputation, and the shared hospital workspace. See the root README for current startup commands and the ML benchmark. The module contract below records the original engine boundary; Person 2 integration tasks described here are now implemented in `api.py`, `db.py`, and `planning.py`.
+
+A trained ridge autoregressor now initializes scenario admission rates from hospital case history. Earlier references to last-three-day demand initialization describe the fallback used when the model artifact is unavailable. Synthetic validation metrics are in `models/evaluation.json`.
 
 The decision engine uses Python's standard library and has no database, HTTP, authentication, or UI dependencies. All data is synthetic. This implements the Person 1 scope from the two-flow plan; Person 2 owns persistence, authorization, APIs, client polling, and the two interfaces.
 

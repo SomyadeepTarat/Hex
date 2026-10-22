@@ -11,6 +11,7 @@ def generate_futures(cases, hospitals, settings):
     hospitals = records(hospitals)
     days = sorted({str(c['reported_at'])[:10] for c in cases})[-3:]
     rates = {h['hospital_id']: sum(c['hospital_id'] == h['hospital_id'] and str(c['reported_at'])[:10] in days and (c['admitted'] is True or str(c['admitted']).lower() == 'true') for c in cases) / max(len(days), 1) for h in hospitals}
+    rates.update(settings.get('admission_rates', {}))
     futures = []
     for index in range(count):
         growth, los = rng.uniform(-0.02, 0.12), rng.uniform(4, 8)

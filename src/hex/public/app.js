@@ -1,6 +1,8 @@
-const API = 'http://127.0.0.1:8000';
+const API = '';
 let hospitals = [];
 let latestSignature = '';
+let hasSearched = false;
+let requestNumber = 0;
 const statusRoot = document.querySelector('#hospital-status');
 
 function renderHospitals(rows) {
@@ -8,8 +10,10 @@ function renderHospitals(rows) {
     const available = h.staffed_general_beds == null || h.occupied_general_beds == null
       ? 'Availability unknown'
       : `${Math.max(0, h.staffed_general_beds - h.occupied_general_beds)} staffed beds reported available`;
+    const reportAge = h.reported_at ? Date.now() - Date.parse(h.reported_at) : NaN;
+    const freshness = Number.isFinite(reportAge) && reportAge >= 0 && reportAge <= 900000 ? 'Current report' : Number.isFinite(reportAge) ? 'Stale report' : 'Report time unknown';
     const accepting = h.accepting_patients === true ? 'Accepting' : h.accepting_patients === false ? 'Not accepting' : 'Status unknown';
-    return `<div class="hospital"><div class="symbol">✚</div><div class="details"><b>${h.name}</b><small>${h.zone_id} · ${accepting} · Updated ${h.reported_at ? new Date(h.reported_at).toLocaleTimeString() : 'unknown'}</small></div><div class="capacity">${available}<small>Reported status</small></div></div>`;
+    return `<div class="hospital"><div class="symbol">✚</div><div class="details"><b>${h.name}</b><small>${h.zone_id} · ${accepting} · ${freshness} · Updated ${h.reported_at ? new Date(h.reported_at).toLocaleTimeString() : 'unknown'}</small></div><div class="capacity">${available}<small>Reported status</small></div></div>`;
   }).join('');
 }
 
@@ -22,8 +26,7 @@ async function refreshHospitals() {
     hospitals = data.hospitals;
     renderHospitals(hospitals);
     document.querySelector('#connection').textContent = `${data.environment} · refreshed now`;
-    const previous = document.querySelector('#results .recommendation');
-    if (previous && signature !== latestSignature) document.querySelector('#search-form').requestSubmit();
+    if (hasSearched && signature !== latestSignature) document.querySelector('#search-form').requestSubmit();
     latestSignature = signature;
   } catch {
     document.querySelector('#connection').textContent = 'API offline';
@@ -33,6 +36,9 @@ async function refreshHospitals() {
 
 document.querySelector('#search-form').addEventListener('submit', async (event) => {
   event.preventDefault();
+  hasSearched = true;
+  const currentRequest = ++requestNumber;
+  document.querySelector('#error').textContent = '';
   const symptoms = [...document.querySelectorAll('.checks input:checked')].map((input) => input.value);
   const zone_id = document.querySelector('#zone').value || null;
   const results = document.querySelector('#results');
@@ -42,13 +48,14 @@ document.querySelector('#search-form').addEventListener('submit', async (event) 
       body: JSON.stringify({ symptoms, zone_id }), cache: 'no-store',
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || 'Could not get suggestions');
+    if (currentRequest !== requestNumber) return;
+    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Select at least one symptom and try again.');
     if (data.emergency_guidance_required) {
       results.innerHTML = `<div class="warning"><b>Urgent guidance</b><br>${data.guidance}</div>`;
       return;
     }
     const selected = data.suggested_facility;
-    const alternatives = data.alternatives.map((h) => `${h.name} (${h.zone_id}; ${h.freshness_state} status; ${h.availability_state.replace('_', ' ')})`).join(' · ');
+    const alternatives = data.alternatives.filter(h => h.hospital_id !== data.suggested_hospital_id).map((h) => `${h.name} (${h.zone_id}; ${h.freshness_state} status; ${h.availability_state.replace('_', ' ')})`).join(' · ');
     results.innerHTML = selected
       ? `<article class="recommendation"><div class="rec-title">SUGGESTED FACILITY BASED ON REPORTED SERVICES AND AVAILABILITY</div><h2>${selected.name}</h2><div class="reasons">${selected.match_reasons.join(' · ')}<br>Reported ${new Date(selected.reported_at).toLocaleString()} · ${selected.freshness_state} information.</div><div class="alternatives"><b>Alternatives:</b> ${alternatives || 'No other facilities reported.'}<br><br>${data.limitations.join(' ')}</div></article>`
       : `<div class="empty">No facility has current, accepting status. Check the hospital list and contact a facility directly. ${data.limitations.join(' ')}</div>`;

@@ -44,6 +44,9 @@ def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with connect() as db:
         db.executescript("""
+        CREATE TABLE IF NOT EXISTS case_signals (case_id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS proposals (proposal_id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, payload TEXT NOT NULL,
+            status_version INTEGER NOT NULL, constraints_version INTEGER NOT NULL, applied INTEGER NOT NULL DEFAULT 0);
         CREATE TABLE IF NOT EXISTS hospitals (
             hospital_id TEXT PRIMARY KEY, name TEXT NOT NULL, zone_id TEXT NOT NULL,
             services TEXT NOT NULL, emergency_service_available INTEGER NOT NULL DEFAULT 1
@@ -130,3 +133,12 @@ def get_actor(token: str | None):
         return db.execute("""SELECT u.actor_id,u.username,u.role,u.hospital_id FROM sessions s
             JOIN users u ON u.actor_id=s.actor_id WHERE s.token_hash=? AND s.expires_at>?""",
             (hashlib.sha256(token.encode()).hexdigest(), now())).fetchone()
+
+
+def seed_cases():
+    import csv
+    path = ROOT / 'data/synthetic/generated/cases_surge.csv'
+    with connect() as conn:
+        if conn.execute('SELECT COUNT(*) FROM case_signals').fetchone()[0] == 0:
+            with path.open() as handle:
+                conn.executemany('INSERT INTO case_signals VALUES(?,?)', [(r['case_id'], json.dumps(r)) for r in csv.DictReader(handle)])
