@@ -185,4 +185,32 @@ class ApiTests(unittest.TestCase):
         result=self.call('POST','/api/public/recommendations',dict(symptoms=['severe_breathing_difficulty']))[1]
         self.assertTrue(result['emergency_guidance_required'])
 
+    def test_ingestion_filters_before_storage_and_enforces_ownership(self):
+        raw=dict(case_id='PATIENT-PRIVATE-991',hospital_id='HOSP-01',zone_id='ZONE-03',
+                 reported_at='2026-10-22T10:12:00Z',age=34,symptoms='fever|person@example.com',
+                 severity='mild',admitted=False,patient_name='Alex Example',
+                 phone='202-555-0101',notes='Alex Example at 100 Example Street')
+        self.assertEqual(self.call('POST','/api/cases/ingest',{'records':[raw]})[0],401)
+        other={**raw,'hospital_id':'HOSP-02'}
+        self.assertEqual(self.call('POST','/api/cases/ingest',{'records':[other]},self.hospital)[0],403)
+        with db.connect() as conn:
+            before=conn.execute('SELECT COUNT(*) FROM case_signals').fetchone()[0]
+        bad={**raw,'zone_id':'100 Example Street'}
+        self.assertEqual(self.call('POST','/api/cases/ingest',{'records':[raw,bad]},self.hospital)[0],422)
+        with db.connect() as conn:
+            self.assertEqual(conn.execute('SELECT COUNT(*) FROM case_signals').fetchone()[0],before)
+        code,result=self.call('POST','/api/cases/ingest',{'records':[raw]},self.hospital)
+        self.assertEqual(code,200)
+        self.assertTrue(result['privacy_gate']=='applied' and not result['raw_text_stored'])
+        with db.connect() as conn:
+            payloads=[r[0] for r in conn.execute('SELECT payload FROM case_signals')]
+            stored=' '.join(payloads)
+            for value in ('Alex Example','person@example.com','100 Example Street','202-555-0101','PATIENT-PRIVATE-991'):
+                self.assertNotIn(value,stored)
+            self.assertEqual(len(payloads),before+1)
+        # Restart sanitization preserves internal keys without duplicating cases.
+        db.seed_cases()
+        with db.connect() as conn:
+            self.assertEqual({r[0] for r in conn.execute('SELECT payload FROM case_signals')},set(payloads))
+
 if __name__=='__main__':unittest.main()

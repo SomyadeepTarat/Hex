@@ -147,8 +147,19 @@ def get_actor(token: str | None):
 
 def seed_cases():
     import csv
+    from .privacy.gate import sanitize_batch
     path = ROOT / 'data/synthetic/generated/cases_surge.csv'
     with connect() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        hospital_ids = {row[0] for row in conn.execute('SELECT hospital_id FROM hospitals')}
+        with ZONES_CSV.open(encoding='utf-8-sig', newline='') as zones_file:
+            zone_ids = {row['zone_id'] for row in csv.DictReader(zones_file)}
         if conn.execute('SELECT COUNT(*) FROM case_signals').fetchone()[0] == 0:
-            with path.open() as handle:
-                conn.executemany('INSERT INTO case_signals VALUES(?,?)', [(r['case_id'], json.dumps(r)) for r in csv.DictReader(handle)])
+            with path.open(encoding='utf-8-sig', newline='') as handle:
+                records = list(csv.DictReader(handle))
+        else:
+            records = [json.loads(row[0]) for row in conn.execute('SELECT payload FROM case_signals')]
+        # Existing case payloads also cross the gate at startup. No raw backup.
+        safe = sanitize_batch(records, hospital_ids, zone_ids, preserve_case_ids=True)
+        conn.execute('DELETE FROM case_signals')
+        conn.executemany('INSERT INTO case_signals VALUES(?,?)', [(r['case_id'], json.dumps(r)) for r in safe])
