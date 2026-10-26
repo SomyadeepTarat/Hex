@@ -114,3 +114,35 @@ The merged frontend keeps the dark care conversation, directory, operations dash
 The operations dashboard retains resource reporting, inline save/error feedback, planning input versions, administrator replay controls, ML evidence and audit history. A normal case feed can correctly select baseline; switch back to the respiratory surge feed and use a 14-day horizon with nonzero hospital limits to demonstrate interventions.
 
 See `docs/demo-checklist.md` for the tested demonstration sequence.
+
+## Hackathon repository checklist
+
+| Requirement | Repository evidence |
+| --- | --- |
+| Complete prototype and setup | Python source in `src/hex/`, browser assets in `src/hex/public/` and `src/hex/workspace/`; launch steps above |
+| Environment variables | [`.env.example`](.env.example) and configuration below |
+| Technical design and architecture diagrams | [Technical design document](docs/technical-design.md), including component and sequence diagrams |
+| Sample data | [Fixture inventory](docs/data-schema.md), `data/raw/` and `data/synthetic/`; all demo data is synthetic |
+| Test cases | `tests/`; automated command above and [manual demo checklist](docs/demo-checklist.md) |
+| Open-source license | [MIT License](LICENSE) |
+
+### Optional environment configuration
+
+No environment variables or external API credentials are required for local matching and planning. To enable optional Groq support, copy the example and edit `.env` locally:
+
+```bash
+cp .env.example .env
+```
+
+If `.env` already exists, edit it instead of overwriting it. Restart the server after changes.
+
+| Variable | Required | Default / purpose |
+| --- | --- | --- |
+| `GROQ_API_KEY` | Only for opted-in Groq requests | No key by default; obtain a working provider key and replace the example placeholder |
+| `GROQ_MODEL` | No | `openai/gpt-oss-20b`; provider model used for structured interpretation and explanation selection |
+
+Existing process environment values take precedence over `.env`. Keep credentials out of Git. The interface requires explicit Groq opt-in per submitted request; provider failure retains local fallback. The server port is configured with `--port`, not an environment variable.
+
+### License and third-party code
+
+Project code is available under the [MIT License](LICENSE). Bundled Three.js retains its [upstream license notice](src/hex/public/vendor/THREE-LICENSE.txt); dependencies retain their respective licenses. Optional Groq use requires a separate provider account.
